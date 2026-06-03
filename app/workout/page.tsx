@@ -30,6 +30,105 @@ export default function WorkoutPage() {
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
   const [swapError, setSwapError] = useState('');
 
+  // AI Progression States
+  const [isScaling, setIsScaling] = useState(false);
+  const [progressionNote, setProgressionNote] = useState('');
+
+  const handleAutoProgress = async () => {
+    if (!plan || !plan.plan_data || plan.plan_data.length === 0) return;
+    
+    setIsScaling(true);
+    setProgressionNote('');
+    
+    try {
+      const profile = localDb.getProfile();
+      const currentDayExercises = plan.plan_data[selectedDayIndex].exercises;
+      
+      const res = await fetch('/api/workout/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exercises: currentDayExercises,
+          goal: profile.goal || 'muscle gain',
+          experience: profile.experience || 'intermediate',
+          language: profile.language || 'english'
+        })
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.exercises) {
+        // Replace current day exercises in plan
+        const updatedPlanData = plan.plan_data.map((dayItem, dIdx) => {
+          if (dIdx !== selectedDayIndex) return dayItem;
+          return {
+            ...dayItem,
+            exercises: data.exercises
+          };
+        });
+        
+        const updatedPlan: WorkoutPlan = {
+          ...plan,
+          plan_data: updatedPlanData,
+          updated_at: new Date().toISOString()
+        };
+        
+        localStorage.setItem('fitcore_workout_plan', JSON.stringify(updatedPlan));
+        setPlan(updatedPlan);
+        setProgressionNote(data.coachNote || 'Intensity scaled successfully!');
+        
+        // Clear message after 5 seconds
+        setTimeout(() => setProgressionNote(''), 6000);
+      } else {
+        throw new Error(data.error || 'Failed to scale intensity');
+      }
+    } catch (err: any) {
+      console.warn("Progression API failed, using client fallback:", err);
+      // Client fallback: increase reps manually
+      const currentDayExercises = plan.plan_data[selectedDayIndex].exercises;
+      const updatedExercises = currentDayExercises.map(ex => {
+        let reps = ex.reps;
+        if (typeof reps === 'number') {
+          reps = reps + 2;
+        } else if (typeof reps === 'string') {
+          const parts = reps.split('-');
+          if (parts.length === 2) {
+            const start = parseInt(parts[0]) + 2;
+            const end = parseInt(parts[1]) + 2;
+            reps = `${start}-${end}`;
+          } else {
+            reps = `${reps} + 2 reps`;
+          }
+        }
+        return {
+          ...ex,
+          reps,
+          tip: `${ex.tip} (Progressive Overload Active: Focus on slow negatives)`
+        };
+      });
+      
+      const updatedPlanData = plan.plan_data.map((dayItem, dIdx) => {
+        if (dIdx !== selectedDayIndex) return dayItem;
+        return {
+          ...dayItem,
+          exercises: updatedExercises
+        };
+      });
+      
+      const updatedPlan: WorkoutPlan = {
+        ...plan,
+        plan_data: updatedPlanData,
+        updated_at: new Date().toISOString()
+      };
+      
+      localStorage.setItem('fitcore_workout_plan', JSON.stringify(updatedPlan));
+      setPlan(updatedPlan);
+      setProgressionNote('⚡ Local Overload applied! Repetition thresholds increased by +2 reps.');
+      setTimeout(() => setProgressionNote(''), 5000);
+    } finally {
+      setIsScaling(false);
+    }
+  };
+
   useEffect(() => {
     // Get today's date formatted as YYYY-MM-DD
     const today = new Date().toISOString().split('T')[0];
@@ -295,6 +394,44 @@ export default function WorkoutPage() {
           </div>
           <span className="text-sm font-bold text-cyan-400 shrink-0 w-8 text-right">{progressPercent}%</span>
         </div>
+      </div>
+
+      {/* AI AUTO PROGRESSION SCALE PANEL */}
+      <div className="glass-panel border border-cyan-500/25 bg-gradient-to-r from-cyan-950/20 to-purple-950/15 rounded-2xl p-5 md:p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Sparkles className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
+              AI Intensity Auto-Progression
+            </h3>
+            <p className="text-xs text-gray-400">
+              Smashed these sets easily? Scale workout reps and set parameters using progressive overload.
+            </p>
+          </div>
+          <button
+            onClick={handleAutoProgress}
+            disabled={isScaling}
+            className="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 hover:scale-[1.02] active:scale-[0.98] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {isScaling ? (
+              <>
+                <RotateCw className="h-4 w-4 animate-spin" />
+                Scaling Intensity...
+              </>
+            ) : (
+              <>
+                Scale Intensity Now
+                <Sparkles className="h-4 w-4 text-cyan-300" />
+              </>
+            )}
+          </button>
+        </div>
+        {progressionNote && (
+          <div className="p-3.5 bg-cyan-500/10 border border-cyan-500/25 text-cyan-200 text-xs rounded-xl flex items-center gap-2 animate-[fadeIn_0.3s_ease-out]">
+            <CheckCircle2 className="h-4.5 w-4.5 text-cyan-400 shrink-0" />
+            <span>{progressionNote}</span>
+          </div>
+        )}
       </div>
 
       {/* EXERCISES CHECKLIST GRID */}

@@ -1,21 +1,32 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Zap, Sparkles, User, Lock, Phone, Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Zap, Sparkles, Mail, ArrowRight, ArrowLeft, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { localDb } from '@/lib/db';
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   
-  // Input fields
-  const [name, setName] = useState('');
-  const [emailOrPhone, setEmailOrPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  // Auth Steps
+  const [step, setStep] = useState<'email' | 'otp'>('email');
+  const [email, setEmail] = useState('');
+  
+  // OTP Pin Inputs: 6 digits
+  const [otpPin, setOtpPin] = useState<string[]>(Array(6).fill(''));
+  const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // State Management
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendTimer, setResendTimer] = useState(60);
+  const [canResend, setCanResend] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  
+  // Dev Helper State
+  const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [isMockMode, setIsMockMode] = useState(false);
 
   useEffect(() => {
     // Redirect if already logged in
@@ -23,80 +34,211 @@ function LoginContent() {
       router.push('/');
       return;
     }
+  }, [router]);
 
-    // Read pre-selected mode from query param
-    const mode = searchParams.get('mode');
-    if (mode === 'signup') {
-      setActiveTab('signup');
-    } else {
-      setActiveTab('login');
+  // Handle OTP timer countdown
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (step === 'otp' && resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (resendTimer === 0) {
+      setCanResend(true);
     }
-  }, [searchParams, router]);
+    return () => clearInterval(interval);
+  }, [step, resendTimer]);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Trigger Send OTP API
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email || !email.includes('@')) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
     setIsSubmitting(true);
-    
-    // Simulate API call delay
-    setTimeout(() => {
-      // Set session logged in
-      localStorage.setItem('fitcore_logged_in', 'true');
-      
-      // Ensure profile and default plans exist so they don't see empty dashboard
-      const profile = localDb.getProfile();
-      if (!profile.name || profile.name === 'Flex Champion') {
-        localDb.updateProfile({
-          name: emailOrPhone.split('@')[0] || 'Champion',
-          email: emailOrPhone.includes('@') ? emailOrPhone : 'user@fitcore.ai',
-          phone: !emailOrPhone.includes('@') ? emailOrPhone : undefined
-        });
+    setErrorMsg('');
+    setSuccessMsg('');
+    setDevOtp(null);
+
+    try {
+      const res = await fetch('/api/auth/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to send verification code');
       }
 
-      // Check if plans exist, if not, generate default mock plans to avoid blank screens
+      setStep('otp');
+      setResendTimer(60);
+      setCanResend(false);
+      setSuccessMsg(data.message || 'OTP code sent! Check your email.');
+      setIsMockMode(data.mockMode || false);
+
+      // Save OTP to dev helper if returned (only in dev mode)
+      if (data.devMode && data.code) {
+        setDevOtp(data.code);
+      }
+
+      // Clear pin inputs
+      setOtpPin(Array(6).fill(''));
+      
+      // Focus first pin input after step transitions (delay for DOM render)
+      setTimeout(() => {
+        pinRefs.current[0]?.focus();
+      }, 150);
+
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Trigger Verify OTP API
+  const handleVerifyOtp = async (enteredOtp?: string) => {
+    const finalOtp = enteredOtp || otpPin.join('');
+    
+    if (finalOtp.length !== 6) {
+      setErrorMsg('Please enter all 6 digits.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    try {
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          otp: finalOtp,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid OTP code. Please check and try again.');
+      }
+
+      // Successful verification -> Login
+      localStorage.setItem('fitcore_logged_in', 'true');
+      
+      // Update email in local db profile
+      const profile = localDb.getProfile();
+      const needsProfileSetup = !profile.goal || profile.name === 'Flex Champion';
+      
+      localDb.updateProfile({
+        email: email.trim(),
+        name: profile.name === 'Flex Champion' ? email.split('@')[0] : profile.name
+      });
+
+      // Seed default plans if they don't exist
       const w = localDb.getWorkoutPlan();
       const d = localDb.getDietPlan();
       if (!w || !d) {
-        // Seed default plans
         seedMockData();
       }
 
-      // Dispatch event to update navbar/wrapper
+      // Trigger profile reload event across application components
       window.dispatchEvent(new Event('fitcore_profile_updated'));
+
+      setSuccessMsg('Successfully signed in!');
+      
+      // Redirect based on whether they need custom AI profile setups
+      setTimeout(() => {
+        if (needsProfileSetup) {
+          router.push('/profile');
+        } else {
+          router.push('/');
+        }
+      }, 600);
+
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Invalid code.');
+      // Keep inputs but focus the first one
+      pinRefs.current[0]?.focus();
+    } finally {
       setIsSubmitting(false);
-      router.push('/');
-    }, 800);
+    }
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  // 6-Pin input keyboard behavior
+  const handlePinChange = (value: string, index: number) => {
+    // Only accept numeric digits
+    const numericValue = value.replace(/[^0-9]/g, '');
+    if (!numericValue) return;
+
+    const newPin = [...otpPin];
+    // Take only the last character (in case they write more)
+    newPin[index] = numericValue.slice(-1);
+    setOtpPin(newPin);
+
+    // Auto-focus next input box
+    if (index < 5 && newPin[index]) {
+      pinRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-verify if all 6 digits are typed
+    const combinedOtp = newPin.join('');
+    if (combinedOtp.length === 6 && !newPin.includes('')) {
+      handleVerifyOtp(combinedOtp);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === 'Backspace') {
+      const newPin = [...otpPin];
+      
+      if (!newPin[index] && index > 0) {
+        // Current is already empty, delete previous and focus it
+        newPin[index - 1] = '';
+        setOtpPin(newPin);
+        pinRefs.current[index - 1]?.focus();
+      } else {
+        // Clear current
+        newPin[index] = '';
+        setOtpPin(newPin);
+      }
+      e.preventDefault();
+    }
+  };
+
+  // Handle clipboard paste of the 6-digit OTP code
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
-
-    setTimeout(() => {
-      // Set session logged in
-      localStorage.setItem('fitcore_logged_in', 'true');
-      
-      // Update name and email/phone in profile
-      localDb.updateProfile({
-        name: name,
-        email: emailOrPhone.includes('@') ? emailOrPhone : 'user@fitcore.ai',
-        phone: !emailOrPhone.includes('@') ? emailOrPhone : undefined
-      });
-
-      // Dispatch profile updated event
-      window.dispatchEvent(new Event('fitcore_profile_updated'));
-      setIsSubmitting(false);
-      
-      // Redirect to profile setup to generate custom AI plans
-      router.push('/profile');
-    }, 800);
+    const pastedData = e.clipboardData.getData('text').trim();
+    if (/^\d{6}$/.test(pastedData)) {
+      const newPin = pastedData.split('');
+      setOtpPin(newPin);
+      // Auto-submit
+      handleVerifyOtp(pastedData);
+    }
   };
 
+  // Quick dev mode helper to auto-fill OTP
+  const handleDevAutoFill = () => {
+    if (devOtp) {
+      const pins = devOtp.split('');
+      setOtpPin(pins);
+      handleVerifyOtp(devOtp);
+    }
+  };
+
+  // Instant demo account setup (bypasses email validation for evaluation)
   const handleInstantDemo = () => {
     setIsSubmitting(true);
     setTimeout(() => {
       localStorage.setItem('fitcore_logged_in', 'true');
       
-      // Save default profile parameters
       localDb.updateProfile({
         name: 'Flex Champion',
         email: 'demo@fitcore.ai',
@@ -117,6 +259,7 @@ function LoginContent() {
     }, 500);
   };
 
+  // Seed default plans if database has no active records
   const seedMockData = () => {
     const mockWorkout = [
       {
@@ -170,134 +313,40 @@ function LoginContent() {
           <p className="text-xs text-gray-400">Your AI-Powered Personal Fitness Ecosystem</p>
         </div>
 
-        {/* TABS CONTROLLER */}
-        <div className="flex bg-[#0b0e14]/60 border border-white/5 p-1 rounded-2xl">
-          <button
-            onClick={() => setActiveTab('login')}
-            className={`flex-1 py-3 text-center rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'login'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20 text-cyan-400 shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            Login
-          </button>
-          <button
-            onClick={() => setActiveTab('signup')}
-            className={`flex-1 py-3 text-center rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'signup'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20 text-cyan-400 shadow-md'
-                : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            Sign Up
-          </button>
-        </div>
+        {/* FEEDBACK STATUS ALERTS */}
+        {errorMsg && (
+          <div className="flex items-center gap-2.5 p-3.5 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+            <AlertCircle className="h-4.5 w-4.5 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+        
+        {successMsg && !errorMsg && (
+          <div className="flex items-center gap-2.5 p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400">
+            <CheckCircle2 className="h-4.5 w-4.5 shrink-0 animate-bounce" />
+            <span>{successMsg}</span>
+          </div>
+        )}
 
-        {/* FORM SECTION */}
-        {activeTab === 'login' ? (
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email or Phone Number</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={emailOrPhone}
-                  onChange={(e) => setEmailOrPhone(e.target.value)}
-                  placeholder="e.g. +91 98765 43210 or user@fitcore.ai"
-                  className="w-full bg-[#0b0e14]/50 border border-white/8 focus:border-cyan-500 rounded-xl pl-10 pr-4 py-3 text-xs text-white outline-none transition-colors"
-                />
-                <User className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
+        {/* INTERACTIVE FORM SECTIONS */}
+        {step === 'email' ? (
+          <form onSubmit={handleSendOtp} className="space-y-4">
+            <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Password (Optional)</label>
-                <span className="text-[9px] text-cyan-500 font-semibold italic">No password needed</span>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
+                <span className="text-[9px] text-cyan-400 font-semibold uppercase tracking-wider">Clerk-style Login</span>
               </div>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Leave blank or enter dummy password"
-                  className="w-full bg-[#0b0e14]/50 border border-white/8 focus:border-cyan-500 rounded-xl pl-10 pr-10 py-3 text-xs text-white outline-none transition-colors"
-                />
-                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-gray-500 hover:text-white"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmitting ? 'Logging in...' : 'Sign In'}
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSignupSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Display Name</label>
-              <div className="relative">
-                <input
-                  type="text"
+                  type="email"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full bg-[#0b0e14]/50 border border-white/8 focus:border-cyan-500 rounded-xl pl-10 pr-4 py-3 text-xs text-white outline-none transition-colors"
+                  disabled={isSubmitting}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. yourname@domain.com"
+                  className="w-full bg-[#0b0e14]/50 border border-white/8 focus:border-cyan-500 rounded-xl pl-10 pr-4 py-3.5 text-xs text-white outline-none transition-colors"
                 />
-                <User className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email or Phone Number</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={emailOrPhone}
-                  onChange={(e) => setEmailOrPhone(e.target.value)}
-                  placeholder="e.g. rahul@gmail.com or +91 99999 88888"
-                  className="w-full bg-[#0b0e14]/50 border border-white/8 focus:border-cyan-500 rounded-xl pl-10 pr-4 py-3 text-xs text-white outline-none transition-colors"
-                />
-                <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Password (Optional)</label>
-                <span className="text-[9px] text-cyan-500 font-semibold italic">No password needed</span>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Configure password (any text is accepted)"
-                  className="w-full bg-[#0b0e14]/50 border border-white/8 focus:border-cyan-500 rounded-xl pl-10 pr-10 py-3 text-xs text-white outline-none transition-colors"
-                />
-                <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-gray-500" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-gray-500 hover:text-white"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                <Mail className="absolute left-3.5 top-4 h-4 w-4 text-gray-500" />
               </div>
             </div>
 
@@ -306,13 +355,120 @@ function LoginContent() {
               disabled={isSubmitting}
               className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:scale-[1.01] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {isSubmitting ? 'Creating account...' : 'Create Account & Continue'}
-              <ArrowRight className="h-4 w-4" />
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Sending Code...
+                </>
+              ) : (
+                <>
+                  Send OTP Code
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </button>
           </form>
+        ) : (
+          <div className="space-y-5">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setStep('email');
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Edit Email
+                </button>
+                <span className="text-[10px] text-cyan-400 font-bold bg-cyan-950/40 border border-cyan-800/30 px-2 py-0.5 rounded-full">
+                  Step 2 of 2
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 pt-2 text-center">
+                We sent a 6-digit OTP to <strong className="text-white">{email}</strong>
+              </p>
+            </div>
+
+            {/* 6-DIGIT PIN INPUT COMPONENT */}
+            <div className="flex justify-between gap-2.5 my-4" onPaste={handlePaste}>
+              {otpPin.map((digit, idx) => (
+                <input
+                  key={idx}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  disabled={isSubmitting}
+                  ref={(el) => {
+                    pinRefs.current[idx] = el;
+                  }}
+                  value={digit}
+                  onChange={(e) => handlePinChange(e.target.value, idx)}
+                  onKeyDown={(e) => handleKeyDown(e, idx)}
+                  className="w-12 h-14 bg-[#0b0e14]/60 border-2 border-white/8 focus:border-cyan-500 rounded-xl text-center text-lg font-black text-cyan-400 outline-none transition-all focus:shadow-[0_0_8px_rgba(6,182,212,0.3)]"
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={() => handleVerifyOtp()}
+              disabled={isSubmitting || otpPin.includes('')}
+              className="w-full py-3.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  Verify & Sign In
+                  <CheckCircle2 className="h-4 w-4" />
+                </>
+              )}
+            </button>
+
+            {/* DEV AUTOFILL WIDGET */}
+            {devOtp && (
+              <div className="p-3 bg-cyan-950/20 border border-cyan-500/20 rounded-xl space-y-1.5">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-cyan-400 font-bold uppercase">⚡ Developer Auto-Fill</span>
+                  <span className="text-gray-500 italic">Mock terminal logs</span>
+                </div>
+                <button
+                  onClick={handleDevAutoFill}
+                  disabled={isSubmitting}
+                  className="w-full py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-[11px] font-black text-cyan-400 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Inject OTP Code ({devOtp})
+                </button>
+              </div>
+            )}
+
+            {/* OTP RESEND ACTIONS */}
+            <div className="text-center">
+              {canResend ? (
+                <button
+                  onClick={() => handleSendOtp()}
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-bold transition-colors"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Resend OTP Code
+                </button>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Resend code in <strong className="text-gray-300">{resendTimer}s</strong>
+                </p>
+              )}
+            </div>
+          </div>
         )}
 
-        {/* MOCK DEMO GATEWAY */}
+        {/* DEMO BYPASS GATEWAY */}
         <div className="border-t border-white/5 pt-5 space-y-3.5 text-center">
           <p className="text-[10px] text-gray-500">Want to test the app features directly?</p>
           <button
