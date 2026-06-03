@@ -409,7 +409,7 @@ export default function WorkoutPage() {
             {loadingAlternatives ? (
               <div className="flex flex-col items-center justify-center py-12 space-y-4">
                 <RotateCw className="h-8 w-8 text-cyan-400 animate-spin" />
-                <p className="text-xs text-cyan-300 italic animate-pulse">Consulting local Llama coach... mapping target load paths...</p>
+                <p className="text-xs text-cyan-300 italic animate-pulse">Consulting AI coach... mapping target load paths...</p>
               </div>
             ) : swapError ? (
               <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">

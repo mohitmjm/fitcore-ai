@@ -33,7 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Workouts', href: '/workout', icon: Dumbbell, description: 'AI generated exercise plan' },
   { name: 'Diet Planner', href: '/diet', icon: Utensils, description: 'AI meal logs & macro breakdown' },
   { name: 'Progress', href: '/progress', icon: LineChart, description: 'Weight, metrics & photo logger' },
-  { name: 'AI Coach', href: '/chat', icon: MessageSquare, description: 'Chat with Llama 3.2 Coach' },
+  { name: 'AI Coach', href: '/chat', icon: MessageSquare, description: 'Chat with DeepSeek V4 Pro Coach' },
   { name: 'Profile', href: '/profile', icon: User, description: 'Adjust goals & preference' },
 ];
 

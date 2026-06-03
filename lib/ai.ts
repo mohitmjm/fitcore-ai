@@ -24,7 +24,7 @@ export async function callAI(prompt: string, format?: 'json'): Promise<string> {
       reqBody.response_format = { type: "json_object" };
     }
     
-    const res = await fetch("https://api-inference.huggingface.co/v1/chat/completions", {
+    const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

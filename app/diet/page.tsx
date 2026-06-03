@@ -103,7 +103,7 @@ export default function DietPage() {
     } catch (err: any) {
       console.warn("Recipe API failed, using client-side generator:", err);
       const profile = localDb.getProfile();
-      // Generate clean mock recipe client-side if Ollama is offline
+      // Generate clean mock recipe client-side if Hugging Face API is offline
       const mock = {
         recipeName: `High-Protein ${ingredients.split(',')[0] || 'Fridge'} Bowl`,
         calories: 380,
@@ -338,7 +338,7 @@ export default function DietPage() {
             AI Fridge-to-Meal Recipe Builder
           </h2>
           <p className="text-xs text-gray-400">
-            Enter the ingredients you have available in your kitchen, and our Llama model will generate a custom healthy recipe.
+            Enter the ingredients you have available in your kitchen, and our DeepSeek model will generate a custom healthy recipe.
           </p>
         </div>
 

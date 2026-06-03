@@ -103,7 +103,7 @@ export default function ChatPage() {
             <BrainCircuit className="h-7 w-7 text-cyan-400" />
             AI Coach <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Desk</span>
           </h1>
-          <p className="text-gray-400 text-xs mt-1">Interactive trainer powered by Ollama Llama 3.2.</p>
+          <p className="text-gray-400 text-xs mt-1">Interactive trainer powered by DeepSeek V4 Pro.</p>
         </div>
 
         <button
