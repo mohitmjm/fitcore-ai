@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} dark h-full antialiased`}>
-      <body className="min-h-full bg-[#06080c] text-gray-100 flex flex-col font-sans">
+    <html lang="en" className={`${inter.variable} dark h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full bg-[#06080c] text-gray-100 flex flex-col font-sans" suppressHydrationWarning>
         <NavigationWrapper>
           {children}
         </NavigationWrapper>

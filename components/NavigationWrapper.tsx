@@ -71,7 +71,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   };
 
   return (
-    <div className="flex min-h-screen bg-[#06080c] text-gray-100 flex-col md:flex-row">
+    <div className="flex min-h-screen bg-[#06080c] text-gray-100 flex-col md:flex-row" suppressHydrationWarning>
       
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-[rgba(255,255,255,0.06)] fixed h-screen z-20">
