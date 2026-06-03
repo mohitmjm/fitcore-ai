@@ -36,6 +36,25 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url('/six_pack_abs_bg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.035; /* Faint watermark for premium feel without impacting text readability */
+  pointer-events: none;
+  z-index: -10;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.light body::before {
+  opacity: 0.02;
+  filter: invert(0.9) contrast(0.85); /* Converts dark elements to light theme compatible values */
+}
+
 /* Custom Utilities for Premium Look */
 .glass-panel {
   background: var(--card);
