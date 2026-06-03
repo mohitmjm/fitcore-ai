@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Zap, User, Lock, Mail, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { localDb } from '@/lib/db';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
   
   // Input fields
@@ -15,6 +16,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    // Read pre-selected mode from query param
+    const mode = searchParams.get('mode');
+    if (mode === 'signup') {
+      setActiveTab('signup');
+    } else {
+      setActiveTab('login');
+    }
+  }, [searchParams]);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,5 +291,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-10 text-gray-400">Loading auth screen...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
