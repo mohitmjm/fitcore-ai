@@ -39,6 +39,12 @@ export default function ProfilePage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const handleLogout = () => {
+    localStorage.removeItem('fitcore_logged_in');
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+    router.push('/');
+  };
+
   useEffect(() => {
     const data = localDb.getProfile();
     setProfile(data);
@@ -88,6 +94,7 @@ export default function ProfilePage() {
 
     // Update profile
     const saved = localDb.updateProfile(updatedProfile);
+    localStorage.setItem('fitcore_logged_in', 'true');
     setProfile(saved);
     
     // Broadcast event to refresh navbar
@@ -456,12 +463,20 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* SUBMIT BUTTON */}
-        <div className="flex justify-end gap-4">
+        {/* SUBMIT & LOGOUT BUTTON PANEL */}
+        <div className="flex flex-col sm:flex-row justify-end gap-4">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full sm:w-auto px-8 py-4 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/20 hover:text-red-400 font-semibold text-sm transition-all"
+          >
+            Log Out
+          </button>
+          
           <button
             type="submit"
             disabled={isGenerating}
-            className="w-full md:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold text-sm transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:hover:scale-100"
+            className="w-full sm:w-auto px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold text-sm transition-all hover:scale-[1.02] shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] flex items-center justify-center gap-2.5 disabled:opacity-50 disabled:hover:scale-100"
           >
             {isGenerating ? (
               <>
