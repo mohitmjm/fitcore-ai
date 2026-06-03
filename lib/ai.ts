@@ -55,8 +55,35 @@ export async function callAI(prompt: string, format?: 'json'): Promise<string> {
 
 function getFallbackAIResponse(prompt: string): string {
   const promptLower = prompt.toLowerCase();
-  
-  // 1. WORKOUT PLAN GENERATION FALLBACK
+
+  // 1. FRIDGE RECIPE GENERATION FALLBACK
+  if (promptLower.includes("nutritionist") || promptLower.includes("recipe") || promptLower.includes("fridge")) {
+    const isHinglish = promptLower.includes("hinglish");
+    const recipe = {
+      recipeName: `High-Protein Paneer & Veggie Sauté`,
+      calories: 420,
+      protein_g: 26,
+      carbs_g: 12,
+      fat_g: 18,
+      prep_time_minutes: 15,
+      instructions: isHinglish 
+        ? [
+            "1. Paneer ko cubes me kaat lein aur available vegetables ko wash karein.",
+            "2. Non-stick pan me ek chammach oil/ghee garam karke paneer ko light brown karein.",
+            "3. Vegetables ko pan me add karein aur 5 minutes ke liye saute karein.",
+            "4. Swadanusar namak aur kaali mirch sprinkle karke warm serve karein."
+          ]
+        : [
+            "1. Cut paneer into bite-sized cubes and wash any available vegetables.",
+            "2. Heat a teaspoon of olive oil or ghee in a pan and lightly brown the paneer.",
+            "3. Add your vegetables to the skillet and sauté for 5 minutes over medium heat.",
+            "4. Season with a pinch of salt and pepper. Serve warm."
+          ]
+    };
+    return JSON.stringify(recipe);
+  }
+
+  // 2. WORKOUT PLAN GENERATION FALLBACK
   if (promptLower.includes("generate a") && (promptLower.includes("workout") || promptLower.includes("training"))) {
     // Extract info if possible
     const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
@@ -158,8 +185,8 @@ function getFallbackAIResponse(prompt: string): string {
     return JSON.stringify(plan);
   }
   
-  // 2. DIET PLAN GENERATION FALLBACK
-  if (promptLower.includes("create a") && (promptLower.includes("diet") || promptLower.includes("meal") || promptLower.includes("nutrition"))) {
+  // 3. DIET PLAN GENERATION FALLBACK
+  if (promptLower.includes("create a") && (promptLower.includes("diet") || promptLower.includes("meal") || promptLower.includes("nutrition")) && !promptLower.includes("recipe")) {
     const typeMatch = prompt.match(/diet:\s*([a-zA-Z\-]+)/i);
     const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
     const weightMatch = prompt.match(/(\d+)\s*kg/i);
@@ -238,32 +265,6 @@ function getFallbackAIResponse(prompt: string): string {
     return JSON.stringify(mealPlan);
   }
 
-  // 3. FRIDGE RECIPE GENERATION FALLBACK
-  if (promptLower.includes("nutritionist") || promptLower.includes("recipe") || promptLower.includes("fridge")) {
-    const isHinglish = promptLower.includes("hinglish");
-    const recipe = {
-      recipeName: `High-Protein Paneer & Veggie Sauté`,
-      calories: 420,
-      protein_g: 26,
-      carbs_g: 12,
-      fat_g: 18,
-      prep_time_minutes: 15,
-      instructions: isHinglish 
-        ? [
-            "1. Paneer ko cubes me kaat lein aur available vegetables ko wash karein.",
-            "2. Non-stick pan me ek chammach oil/ghee garam karke paneer ko light brown karein.",
-            "3. Vegetables ko pan me add karein aur 5 minutes ke liye saute karein.",
-            "4. Swadanusar namak aur kaali mirch sprinkle karke warm serve karein."
-          ]
-        : [
-            "1. Cut paneer into bite-sized cubes and wash any available vegetables.",
-            "2. Heat a teaspoon of olive oil or ghee in a pan and lightly brown the paneer.",
-            "3. Add your vegetables to the skillet and sauté for 5 minutes over medium heat.",
-            "4. Season with a pinch of salt and pepper. Serve warm."
-          ]
-    };
-    return JSON.stringify(recipe);
-  }
 
   // 4. EXERCISE SWAP ALTERNATIVES FALLBACK
   if (promptLower.includes("biomechanically") || promptLower.includes("swap") || promptLower.includes("alternative")) {
