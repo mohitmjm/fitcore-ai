@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { Resend } from 'resend';
 
 // Define OTP data structure
 interface OtpData {
@@ -237,35 +238,27 @@ export async function sendOTPEmail(email: string, otp: string): Promise<{ succes
 
   logToConsole();
 
-  // If API key is available, send via Resend API
+  // If API key is available, send via Resend SDK
   if (apiKey && apiKey !== 'YOUR_RESEND_KEY') {
     try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          from: 'FitCore AI <onboarding@resend.dev>',
-          to: email,
-          subject: `${otp} is your FitCore AI login code`,
-          html: htmlContent,
-        }),
+      const resend = new Resend(apiKey);
+      const { data, error } = await resend.emails.send({
+        from: 'FitCore AI <onboarding@resend.dev>',
+        to: email,
+        subject: `${otp} is your FitCore AI login code`,
+        html: htmlContent,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error('Resend API response error:', errorData);
-        return { success: false, error: errorData.message || 'Failed to send email via Resend' };
+      if (error) {
+        console.error('Resend SDK error:', error);
+        return { success: false, error: error.message || 'Failed to send email via Resend SDK' };
       }
 
-      const result = await res.json();
-      console.log(`Email successfully dispatched via Resend for user ${email}. ID: ${result.id}`);
+      console.log(`Email successfully dispatched via Resend SDK for user ${email}. ID: ${data?.id}`);
       return { success: true };
     } catch (e: any) {
-      console.error('Failed to dispatch email via Resend:', e);
-      return { success: false, error: e.message || 'Network error sending email' };
+      console.error('Failed to dispatch email via Resend SDK:', e);
+      return { success: false, error: e.message || 'Network error sending email via Resend SDK' };
     }
   }
 
