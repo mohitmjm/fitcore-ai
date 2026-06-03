@@ -13,7 +13,8 @@ import {
   Zap,
   Menu,
   X,
-  Target
+  Target,
+  Globe
 } from 'lucide-react';
 import { localDb, UserProfile } from '@/lib/db';
 
@@ -37,20 +38,37 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const pathname = usePathname();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
 
   useEffect(() => {
     // Load profile
-    setProfile(localDb.getProfile());
+    const currentProfile = localDb.getProfile();
+    setProfile(currentProfile);
+    if (currentProfile?.language) {
+      setLanguage(currentProfile.language);
+    }
     
     // Add event listener to refresh profile when updated on profile page
     const handleProfileUpdate = () => {
-      setProfile(localDb.getProfile());
+      const updatedProfile = localDb.getProfile();
+      setProfile(updatedProfile);
+      if (updatedProfile?.language) {
+        setLanguage(updatedProfile.language);
+      }
     };
     window.addEventListener('fitcore_profile_updated', handleProfileUpdate);
     return () => {
       window.removeEventListener('fitcore_profile_updated', handleProfileUpdate);
     };
   }, []);
+
+  const toggleLanguage = () => {
+    const nextLang = language === 'english' ? 'hinglish' : 'english';
+    setLanguage(nextLang);
+    localDb.updateProfile({ language: nextLang });
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+    window.dispatchEvent(new CustomEvent('fitcore_language_changed', { detail: nextLang }));
+  };
 
   return (
     <div className="flex min-h-screen bg-[#06080c] text-gray-100 flex-col md:flex-row">
@@ -148,6 +166,17 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
           );
         })}
       </nav>
+      
+      {/* FLOATING LANGUAGE SWITCHER AT BOTTOM RIGHT */}
+      <div className="fixed bottom-20 md:bottom-6 right-6 z-40">
+        <button
+          onClick={toggleLanguage}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 font-semibold text-xs tracking-wider shadow-lg hover:scale-105 transition-all animate-pulse-neon"
+        >
+          <Globe className="h-4 w-4 text-cyan-400" />
+          <span>{language === 'english' ? 'English' : 'Hinglish'}</span>
+        </button>
+      </div>
       
     </div>
   );
