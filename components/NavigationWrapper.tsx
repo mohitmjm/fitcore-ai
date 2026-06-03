@@ -123,7 +123,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
 
   if (!isLoggedIn) {
     return (
-      <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)] flex-col" suppressHydrationWarning>
+      <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col" suppressHydrationWarning>
         <main className="flex-1 min-h-screen flex flex-col">
           <div className="flex-1 w-full mx-auto">
             {children}
@@ -153,7 +153,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)] flex-col md:flex-row" suppressHydrationWarning>
+    <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col md:flex-row" suppressHydrationWarning>
       
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-[rgba(255,255,255,0.06)] fixed h-screen z-20">
