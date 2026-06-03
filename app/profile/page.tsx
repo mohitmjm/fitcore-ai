@@ -33,6 +33,7 @@ export default function ProfilePage() {
   const [heightCm, setHeightCm] = useState('178');
   const [mealsPerDay, setMealsPerDay] = useState(4);
   const [allergiesInput, setAllergiesInput] = useState('');
+  const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -55,6 +56,7 @@ export default function ProfilePage() {
     setHeightCm(data.height_cm?.toString() || '178');
     setMealsPerDay(data.meals_per_day || 4);
     setAllergiesInput(data.allergies?.join(', ') || '');
+    setLanguage(data.language || 'english');
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -80,7 +82,8 @@ export default function ProfilePage() {
       weight_kg: Number(weightKg),
       height_cm: Number(heightCm),
       meals_per_day: Number(mealsPerDay),
-      allergies
+      allergies,
+      language
     };
 
     // Update profile
@@ -101,7 +104,8 @@ export default function ProfilePage() {
           experience: experience,
           goal: goal,
           equipment: equipment,
-          userId: saved.id
+          userId: saved.id,
+          language: language
         })
       });
       
@@ -124,7 +128,8 @@ export default function ProfilePage() {
           height_cm: Number(heightCm),
           allergies: allergies,
           meals_per_day: Number(mealsPerDay),
-          userId: saved.id
+          userId: saved.id,
+          language: language
         })
       });
       
@@ -137,7 +142,10 @@ export default function ProfilePage() {
 
       // Add a default welcome message to AI Coach
       localDb.clearChat();
-      localDb.addChatMessage('ai', `I have updated your training and meal logs! Based on your target to ${goal} using ${equipment} equipment ${daysPerWeek} days a week, I've designed a brand-new plan. What would you like to discuss first?`);
+      const welcomeMsg = language === 'hinglish'
+        ? `Maine aapka workout aur diet plan update kar diya hai! Aapka goal ${goal} hai aur aap ${equipment} use kar rahe ho week me ${daysPerWeek} din. Chalo batayein, aaj kis chiz se shuru karein?`
+        : `I have updated your training and meal logs! Based on your target to ${goal} using ${equipment} equipment ${daysPerWeek} days a week, I've designed a brand-new plan. What would you like to discuss first?`;
+      localDb.addChatMessage('ai', welcomeMsg);
       
       setStatusMessage('Plans successfully customized! Redirecting...');
       setSaveSuccess(true);
@@ -249,20 +257,34 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Weekly Frequency</label>
-              <select 
-                value={daysPerWeek} 
-                onChange={(e) => setDaysPerWeek(Number(e.target.value))}
-                className="w-full bg-[#0b0e14] border border-[rgba(255,255,255,0.08)] focus:border-cyan-500 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors"
-              >
-                <option value={2}>2 Days / Week</option>
-                <option value={3}>3 Days / Week</option>
-                <option value={4}>4 Days / Week (Recommended)</option>
-                <option value={5}>5 Days / Week</option>
-                <option value={6}>6 Days / Week</option>
-                <option value={7}>7 Days / Week</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Weekly Frequency</label>
+                <select 
+                  value={daysPerWeek} 
+                  onChange={(e) => setDaysPerWeek(Number(e.target.value))}
+                  className="w-full bg-[#0b0e14] border border-[rgba(255,255,255,0.08)] focus:border-cyan-500 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors"
+                >
+                  <option value={2}>2 Days / Week</option>
+                  <option value={3}>3 Days / Week</option>
+                  <option value={4}>4 Days / Week (Recommended)</option>
+                  <option value={5}>5 Days / Week</option>
+                  <option value={6}>6 Days / Week</option>
+                  <option value={7}>7 Days / Week</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">AI Language Preference</label>
+                <select 
+                  value={language} 
+                  onChange={(e) => setLanguage(e.target.value as any)}
+                  className="w-full bg-[#0b0e14] border border-[rgba(255,255,255,0.08)] focus:border-cyan-500 rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors font-medium"
+                >
+                  <option value="english">English</option>
+                  <option value="hinglish">Hinglish (Hindi in English letters)</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

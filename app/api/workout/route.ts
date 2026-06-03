@@ -3,13 +3,18 @@ import { callAI } from '@/lib/ai';
 
 export async function POST(request: Request) {
   try {
-    const { days, experience, goal, equipment, userId } = await request.json();
+    const { days, experience, goal, equipment, userId, language } = await request.json();
     
     if (!days || !experience || !goal || !equipment) {
       return NextResponse.json({ error: 'Missing required configuration parameters' }, { status: 400 });
     }
 
-    const prompt = `You are a professional fitness coach. Generate a ${days}-day workout plan for a ${experience} level person with goal: ${goal}, equipment: ${equipment}. Return ONLY a JSON array where each item has: "day" (string, e.g. "Day 1"), and "exercises" (array of objects, each with fields: "name" (string), "sets" (number), "reps" (string or number, e.g. 10 or "12-15"), "rest_seconds" (number), "muscle_group" (string), "tip" (string)). Do not include any conversation, markdown tags, or extra text.`;
+    let languageDirective = "";
+    if (language === 'hinglish') {
+      languageDirective = " Crucial Requirement: All exercise tips (the 'tip' field in the JSON) must be written in Hinglish (Hindi words written in the English/Latin alphabet, for example: 'Back straight rakhein aur slowly perform karein'). Keep the exercise names in standard English.";
+    }
+
+    const prompt = `You are a professional fitness coach. Generate a ${days}-day workout plan for a ${experience} level person with goal: ${goal}, equipment: ${equipment}.${languageDirective} Return ONLY a JSON array where each item has: "day" (string, e.g. "Day 1"), and "exercises" (array of objects, each with fields: "name" (string), "sets" (number), "reps" (string or number, e.g. 10 or "12-15"), "rest_seconds" (number), "muscle_group" (string), "tip" (string)). Do not include any conversation, markdown tags, or extra text.`;
 
     const rawResponse = await callAI(prompt, 'json');
     

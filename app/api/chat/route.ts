@@ -3,14 +3,20 @@ import { callAI } from '@/lib/ai';
 
 export async function POST(request: Request) {
   try {
-    const { message, history } = await request.json();
+    const { message, history, language } = await request.json();
     
     if (!message) {
       return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
     }
 
+    let systemInstructions = "You are a professional, motivating fitness and nutrition coach. Answer the user's questions clearly, accurately, and encouragingly. Always reply in English.";
+    
+    if (language === 'hinglish') {
+      systemInstructions = "You are a professional, motivating fitness and nutrition coach. Answer the user's questions clearly, accurately, and encouragingly. Crucial Language Requirement: You MUST reply in Hinglish (Hindi written using the English/Latin alphabet, for example: 'Kaise ho? Aaj workout kiya? Workout ke baad protein intake badhao aur hydration ka dhyan rakho'). Keep formatting clean.";
+    }
+
     // Build chat history context for the prompt
-    let context = "You are a professional, motivating fitness and nutrition coach. Answer the user's questions clearly, accurately, and encouragingly.\n\n";
+    let context = `${systemInstructions}\n\n`;
     
     if (history && Array.isArray(history)) {
       history.forEach((msg: any) => {

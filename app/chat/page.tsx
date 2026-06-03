@@ -48,12 +48,14 @@ export default function ChatPage() {
     try {
       // 2. Fetch from AI endpoint
       const chatHistory = localDb.getChatMessages();
+      const profile = localDb.getProfile();
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          history: chatHistory.slice(-10) // Send last 10 messages for context
+          history: chatHistory.slice(-10), // Send last 10 messages for context
+          language: profile.language || 'english'
         })
       });
 
@@ -70,8 +72,13 @@ export default function ChatPage() {
     } catch (err: any) {
       console.warn("API Chat failed, using mock advisor fallback:", err);
       // Fallback: consult client side AI
+      const profile = localDb.getProfile();
       const aiModule = await import('@/lib/ai');
-      const aiReply = await aiModule.callAI(`The user says: ${text}. Suggest form, gym tips, diet guidance as a supportive coach.`);
+      let fallbackPrompt = `The user says: ${text}. Suggest form, gym tips, diet guidance as a supportive coach.`;
+      if (profile.language === 'hinglish') {
+        fallbackPrompt += " Crucial: Speak in Hinglish (Hindi written in the Latin alphabet, using casual colloquial expressions like 'Kaise ho? Workout kaisa chal raha hai?').";
+      }
+      const aiReply = await aiModule.callAI(fallbackPrompt);
       const aiMsg = localDb.addChatMessage('ai', aiReply);
       setMessages(prev => [...prev, aiMsg]);
     } finally {

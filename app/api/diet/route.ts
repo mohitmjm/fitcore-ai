@@ -3,7 +3,7 @@ import { callAI } from '@/lib/ai';
 
 export async function POST(request: Request) {
   try {
-    const { diet_type, goal, weight_kg, height_cm, allergies, meals_per_day, userId } = await request.json();
+    const { diet_type, goal, weight_kg, height_cm, allergies, meals_per_day, userId, language } = await request.json();
     
     if (!diet_type || !goal || !weight_kg || !height_cm) {
       return NextResponse.json({ error: 'Missing diet parameters' }, { status: 400 });
@@ -11,7 +11,12 @@ export async function POST(request: Request) {
 
     const allergiesStr = (allergies && allergies.length > 0) ? allergies.join(', ') : 'none';
 
-    const prompt = `You are a certified nutritionist. Create a 7-day Indian meal plan for a ${weight_kg}kg, ${height_cm}cm person. Goal: ${goal}. Diet: ${diet_type}. Allergies: ${allergiesStr}. Return ONLY JSON as a JSON array of 7 items (days), where each day has: "day" (string, e.g. "Monday"), "breakfast" (object), "lunch" (object), "dinner" (object), "snacks" (object). Each meal object must contain fields: "name" (string), "calories" (number), "protein_g" (number), "carbs_g" (number), "fat_g" (number). Do not include conversational text or markdown code fences.`;
+    let languageDirective = "";
+    if (language === 'hinglish') {
+      languageDirective = " Crucial Requirement: All meal titles and description names (the 'name' fields in the JSON) must be written in Hinglish (Hindi words written in the English/Latin alphabet, for example: 'Paneer bhurji roti ke saath', 'Soya chunks pulao aur dahi', 'Boiled ande slice aur brown bread').";
+    }
+
+    const prompt = `You are a certified nutritionist. Create a 7-day Indian meal plan for a ${weight_kg}kg, ${height_cm}cm person. Goal: ${goal}. Diet: ${diet_type}. Allergies: ${allergiesStr}.${languageDirective} Return ONLY JSON as a JSON array of 7 items (days), where each day has: "day" (string, e.g. "Monday"), "breakfast" (object), "lunch" (object), "dinner" (object), "snacks" (object). Each meal object must contain fields: "name" (string), "calories" (number), "protein_g" (number), "carbs_g" (number), "fat_g" (number). Do not include conversational text or markdown code fences.`;
 
     const rawResponse = await callAI(prompt, 'json');
     

@@ -26,6 +26,7 @@ export interface UserProfile {
   meals_per_day?: number;
   weight_kg?: number;
   height_cm?: number;
+  language?: 'english' | 'hinglish';
   created_at?: string;
 }
 
@@ -137,7 +138,8 @@ export const localDb = {
       allergies: [],
       meals_per_day: 4,
       weight_kg: 72,
-      height_cm: 178
+      height_cm: 178,
+      language: 'english'
     });
   },
 
