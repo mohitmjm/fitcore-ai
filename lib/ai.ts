@@ -238,6 +238,111 @@ function getFallbackAIResponse(prompt: string): string {
     return JSON.stringify(mealPlan);
   }
 
-  // 3. CHAT COACH CHAT FALLBACK
+  // 3. FRIDGE RECIPE GENERATION FALLBACK
+  if (promptLower.includes("nutritionist") || promptLower.includes("recipe") || promptLower.includes("fridge")) {
+    const isHinglish = promptLower.includes("hinglish");
+    const recipe = {
+      recipeName: `High-Protein Paneer & Veggie Sauté`,
+      calories: 420,
+      protein_g: 26,
+      carbs_g: 12,
+      fat_g: 18,
+      prep_time_minutes: 15,
+      instructions: isHinglish 
+        ? [
+            "1. Paneer ko cubes me kaat lein aur available vegetables ko wash karein.",
+            "2. Non-stick pan me ek chammach oil/ghee garam karke paneer ko light brown karein.",
+            "3. Vegetables ko pan me add karein aur 5 minutes ke liye saute karein.",
+            "4. Swadanusar namak aur kaali mirch sprinkle karke warm serve karein."
+          ]
+        : [
+            "1. Cut paneer into bite-sized cubes and wash any available vegetables.",
+            "2. Heat a teaspoon of olive oil or ghee in a pan and lightly brown the paneer.",
+            "3. Add your vegetables to the skillet and sauté for 5 minutes over medium heat.",
+            "4. Season with a pinch of salt and pepper. Serve warm."
+          ]
+    };
+    return JSON.stringify(recipe);
+  }
+
+  // 4. EXERCISE SWAP ALTERNATIVES FALLBACK
+  if (promptLower.includes("biomechanically") || promptLower.includes("swap") || promptLower.includes("alternative")) {
+    const isHinglish = promptLower.includes("hinglish");
+    const alternatives = [
+      {
+        name: "Dumbbell Press Alternative",
+        sets: 3,
+        reps: "10-12",
+        rest_seconds: 75,
+        type: "Free Weight",
+        tip: isHinglish 
+          ? "Stabilizer muscles target honge. Spine ko flat aur core tight rakhein."
+          : "Targets stabilizer muscles. Keep your spine flat and engage your core."
+      },
+      {
+        name: "Cable Chest Press / Machine Press",
+        sets: 3,
+        reps: "12",
+        rest_seconds: 60,
+        type: "Machine/Cable",
+        tip: isHinglish
+          ? "Constant resistance aur mechanical tension hold karne par dhyan dein."
+          : "Focus on constant mechanical tension and controlling the eccentric phase."
+      },
+      {
+        name: "Deficit Push-ups (Joint Friendly)",
+        sets: 3,
+        reps: "Max-1",
+        rest_seconds: 45,
+        type: "Bodyweight/Joint-Friendly",
+        tip: isHinglish
+          ? "Apni joints par load kam rakhne ke liye slow negatives perform karein."
+          : "Perform slow negative counts to drop load stress on elbow/shoulder joints."
+      }
+    ];
+    return JSON.stringify(alternatives);
+  }
+
+  // 5. WORKOUT INTENSITY AUTO-PROGRESSION FALLBACK
+  if (promptLower.includes("progressive overload") || promptLower.includes("challenging") || promptLower.includes("scale")) {
+    const isHinglish = promptLower.includes("hinglish");
+    try {
+      const match = prompt.match(/Exercises to scale:\s*(\[[\s\S]*\])/i);
+      if (match) {
+        const list = JSON.parse(match[1]);
+        const progressed = list.map((ex: any) => {
+          let reps = ex.reps;
+          if (typeof reps === 'number') reps = reps + 2;
+          else if (typeof reps === 'string') {
+            const parts = reps.split('-');
+            if (parts.length === 2) {
+              reps = `${parseInt(parts[0]) + 2}-${parseInt(parts[1]) + 2}`;
+            } else {
+              reps = `${reps} + 2 reps`;
+            }
+          }
+          const baseTip = ex.tip || "";
+          return {
+            ...ex,
+            reps,
+            tip: baseTip + (isHinglish 
+              ? " (Intensity Progressed: Negative movement ko slow karein)" 
+              : " (Intensity Progressed: Focus on slow negatives for extra tension)")
+          };
+        });
+        return JSON.stringify(progressed);
+      }
+    } catch (e) {
+      console.warn("Failed to parse exercises for progressive overload fallback, using static list");
+    }
+    
+    const defaultProgress = [
+      { name: "Bench Press", sets: 4, reps: "10-12", rest_seconds: 90, muscle_group: "Chest", tip: "Progressive Overload Active." },
+      { name: "Incline Flyes", sets: 3, reps: "12-15", rest_seconds: 60, muscle_group: "Chest", tip: "Squeeze muscles at peak contraction." }
+    ];
+    return JSON.stringify(defaultProgress);
+  }
+
+  // 6. CHAT COACH CHAT FALLBACK
   return "That is an excellent fitness question! Consistency is key. Ensure you are getting at least 7-8 hours of sleep, drinking 3-4 liters of water daily, and hitting your protein goal (around 1.6g - 2.2g per kg of bodyweight). If you need specific changes to your workouts or diet plan, let me know, and we can adjust the variables!";
 }
