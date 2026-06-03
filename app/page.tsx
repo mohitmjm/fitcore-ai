@@ -246,6 +246,7 @@ export default function DashboardOrLanding() {
   
   // Localization State
   const [lang, setLang] = useState<'english' | 'hinglish'>('english');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   
   // Registration Form States
   const [gymName, setGymName] = useState('');
@@ -271,29 +272,98 @@ export default function DashboardOrLanding() {
       setLatestLog(logs[logs.length - 1]);
     }
 
+    // Load initial theme
+    const storedTheme = localStorage.getItem('fitcore_theme') as 'dark' | 'light' | null;
+    if (storedTheme) {
+      setTheme(storedTheme);
+    }
+
     // Listen for language toggles in bottom right
     const handleLanguageToggle = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail) {
         setLang(customEvent.detail);
       } else {
-        // Fallback to loading profile
         const p = localDb.getProfile();
         setLang(p.language || 'english');
       }
     };
+
+    // Listen for theme toggles
+    const handleThemeToggle = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setTheme(customEvent.detail);
+      }
+    };
     
     window.addEventListener('fitcore_language_changed', handleLanguageToggle);
+    window.addEventListener('fitcore_theme_changed', handleThemeToggle);
     window.addEventListener('fitcore_profile_updated', () => {
       const p = localDb.getProfile();
       setProfile(p);
       setLang(p.language || 'english');
+      setWorkoutPlan(localDb.getWorkoutPlan());
+      setDietPlan(localDb.getDietPlan());
     });
 
     return () => {
       window.removeEventListener('fitcore_language_changed', handleLanguageToggle);
+      window.removeEventListener('fitcore_theme_changed', handleThemeToggle);
     };
   }, []);
+
+  const handleInstantDemo = () => {
+    // Set mock profile
+    localDb.updateProfile({
+      name: 'Flex Champion',
+      email: 'demo@fitcore.ai',
+      goal: 'muscle gain',
+      experience: 'intermediate',
+      equipment: 'gym',
+      days_per_week: 4,
+      weight_kg: 75,
+      height_cm: 180,
+      language: 'english'
+    });
+    
+    // Set mock workout plan
+    const mockWorkout = [
+      {
+        day: "Day 1 - Push Day",
+        exercises: [
+          { name: "Bench Press", sets: 4, reps: "8-10", rest_seconds: 90, muscle_group: "Chest", tip: "Arch your lower back slightly and drive feet into the floor." },
+          { name: "Overhead Shoulder Press", sets: 3, reps: "10", rest_seconds: 75, muscle_group: "Shoulders", tip: "Keep core tight, don't flare elbows out." },
+          { name: "Incline Dumbbell Flyes", sets: 3, reps: "12", rest_seconds: 60, muscle_group: "Chest", tip: "Maintain a slight bend in elbows throughout." },
+          { name: "Tricep Pushdowns", sets: 3, reps: "12-15", rest_seconds: 60, muscle_group: "Triceps", tip: "Lock your elbows to your sides." }
+        ]
+      },
+      {
+        day: "Day 2 - Pull Day",
+        exercises: [
+          { name: "Lat Pulldown", sets: 4, reps: "10", rest_seconds: 90, muscle_group: "Back", tip: "Pull down to your upper chest, squeezing shoulder blades." },
+          { name: "Barbell Rows", sets: 3, reps: "8", rest_seconds: 75, muscle_group: "Back", tip: "Keep torso at 45 degrees, pull bar to navel." },
+          { name: "Bicep Barbell Curls", sets: 3, reps: "10-12", rest_seconds: 60, muscle_group: "Biceps", tip: "Keep chest up and elbows pinned to waist." }
+        ]
+      }
+    ];
+    localDb.saveWorkoutPlan(mockWorkout, 'intermediate');
+
+    // Set mock diet plan
+    const mockDiet = [
+      {
+        day: "Monday",
+        breakfast: { name: "Oatmeal with Almonds & Honey + 3 Egg Whites", calories: 450, protein_g: 30, carbs_g: 50, fat_g: 12 },
+        lunch: { name: "Grilled Chicken Breast with Brown Rice & Broccoli", calories: 550, protein_g: 45, carbs_g: 60, fat_g: 8 },
+        dinner: { name: "Paneer Stir Fry with Mixed Vegetables & Quinoa", calories: 500, protein_g: 25, carbs_g: 40, fat_g: 18 },
+        snacks: { name: "Whey Protein Shake + 1 Banana", calories: 250, protein_g: 28, carbs_g: 30, fat_g: 3 }
+      }
+    ];
+    localDb.saveDietPlan(mockDiet);
+
+    // Broadcast update
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+  };
 
   const handleEnquirySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -520,70 +590,267 @@ export default function DashboardOrLanding() {
   return (
     <div className="space-y-20 animate-[fadeIn_0.5s_ease-out] max-w-5xl mx-auto px-1">
       
-      {/* 1. HERO SECTION */}
-      <section className="relative min-h-[85vh] flex flex-col justify-center items-start pt-10 overflow-hidden">
-        <div className="absolute inset-0 -top-20 bg-gradient-radial-neon opacity-70 pointer-events-none -z-10" />
-        
-        <div className="max-w-3xl space-y-6">
-          <div className="inline-flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/20 px-4 py-2 rounded-full text-[10px] md:text-xs text-cyan-400 font-bold uppercase tracking-wider animate-pulse-neon">
-            <Sparkles className="h-4 w-4" />
-            {t.heroBadge}
+      {/* 1. HERO SECTION (REDESIGNED SCANNER LAYOUT) */}
+      <div className="landing-hero rounded-3xl" style={{ paddingTop: '56px' }}>
+        <div className="nav">
+          <div className="nav-logo">Fit<span>Core</span> AI</div>
+          <div className="nav-links">
+            <a href="#features" className="nav-link">Features</a>
+            <a href="#pricing" className="nav-link">Plans</a>
+            <button onClick={handleInstantDemo} className="nav-link border-none bg-transparent hover:text-cyan-400 font-medium">Instant Demo</button>
           </div>
-          
-          <h1 className="text-5xl md:text-7xl font-black tracking-tight leading-[0.95] text-white">
-            {t.heroTitle1}<br />
-            <span className="text-cyan-400">{t.heroTitle2}</span><br />
-            <span className="bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">{t.heroTitle3}</span>
-          </h1>
-          
-          <p className="text-gray-400 text-sm md:text-base max-w-xl leading-relaxed">
-            {t.heroDesc}
-          </p>
+          <Link href="/profile" className="nav-cta text-center hover:scale-105 transition-transform">Get Started</Link>
+        </div>
 
-          <div className="flex flex-wrap gap-4 pt-2">
-            <Link
-              href="/profile"
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl text-sm font-semibold hover:scale-[1.02] shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all flex items-center gap-2"
-            >
-              <Zap className="h-4.5 w-4.5 text-yellow-300" />
-              {t.planBtn}
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+        <div className="grid-lines"></div>
+        <div className="bg-glow-left"></div>
+        <div className="bg-glow-right"></div>
+
+        <div className="landing-content">
+
+          {/* Left Column: Copy & Actions */}
+          <div className="landing-left-panel">
+            <div className="landing-brand">{lang === 'hinglish' ? 'AI Fitness Platform' : 'AI Fitness Platform'}</div>
+            <h1 className="landing-headline">
+              {lang === 'hinglish' ? <>Train Smarter.<br /><span>Hard Nahi.</span></> : <>Train Smarter.<br /><span>Not Harder.</span></>}
+            </h1>
+            <p className="landing-sub">
+              {lang === 'hinglish' 
+                ? 'Personalised AI workout aur diet plans jo har week aapki body ke saath automatic evolve hote hain.' 
+                : 'Personalised AI workout and diet plans that evolve with your body every week.'}
+            </p>
             
-            <a
-              href="#features"
-              className="px-8 py-4 bg-white/5 border border-white/10 hover:border-white/20 text-gray-200 rounded-xl text-sm font-semibold hover:bg-white/8 transition-all"
-            >
-              {t.heroBtnFeatures}
-            </a>
+            <div className="landing-cta-group">
+              <Link href="/profile" className="landing-btn-primary flex items-center gap-2 hover:scale-[1.02] transition-transform">
+                <Zap className="h-4 w-4 text-yellow-300 animate-pulse" />
+                {lang === 'hinglish' ? 'Trial Shuru Karein' : 'Start Free Trial'}
+              </Link>
+              <button 
+                onClick={handleInstantDemo} 
+                className="landing-btn-outline hover:scale-[1.02] transition-transform hover:border-cyan-500/40"
+              >
+                {lang === 'hinglish' ? 'Instant Demo' : 'Try Instant Demo'}
+              </button>
+            </div>
+            
+            <div className="landing-stat-row">
+              <div className="landing-stat">
+                <div className="landing-stat-val">10K+</div>
+                <div className="landing-stat-lbl">{lang === 'hinglish' ? 'Athletes' : 'Athletes'}</div>
+              </div>
+              <div className="landing-stat">
+                <div className="landing-stat-val">98%</div>
+                <div className="landing-stat-lbl">{lang === 'hinglish' ? 'Accuracy' : 'Accuracy'}</div>
+              </div>
+              <div className="landing-stat">
+                <div className="landing-stat-val">4.9★</div>
+                <div className="landing-stat-lbl">{lang === 'hinglish' ? 'Rating' : 'Rating'}</div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* HERO STATS BAR */}
-        <div className="grid grid-cols-3 gap-6 md:gap-12 mt-16 pt-8 border-t border-[rgba(255,255,255,0.06)] w-full">
-          <div>
-            <p className="text-xl md:text-3xl font-extrabold text-cyan-400">10K+</p>
-            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-semibold mt-1">{t.heroStats1}</p>
-          </div>
-          <div>
-            <p className="text-xl md:text-3xl font-extrabold text-purple-400">Llama 3.2</p>
-            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-semibold mt-1">{t.heroStats2}</p>
-          </div>
-          <div>
-            <p className="text-xl md:text-3xl font-extrabold text-yellow-400">₹99</p>
-            <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-semibold mt-1">{t.heroStats3}</p>
-          </div>
-        </div>
+          {/* Middle Column: SVG Scanner */}
+          <div className="body-wrap" id="bodyWrap">
+            <div className="body-glow"></div>
+            <svg width="200" height="500" viewBox="0 0 200 500" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <radialGradient id="skinGrad" cx="50%" cy="30%" r="60%">
+                  <stop offset="0%" stopColor="#c4956a" stopOpacity="0.55"/>
+                  <stop offset="100%" stopColor="#7a5c3a" stopOpacity="0.25"/>
+                </radialGradient>
+                <radialGradient id="muscleGrad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.5"/>
+                  <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.1"/>
+                </radialGradient>
+                <filter id="softGlow">
+                  <feGaussianBlur stdDeviation="2" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
 
-        {/* SPORT PILLS SCROLL */}
-        <div className="flex flex-wrap gap-2.5 mt-8 text-xs font-semibold text-gray-400">
-          <span className="px-4 py-2 rounded-xl bg-white/3 border border-white/5 hover:border-cyan-400/20 hover:text-white transition-all cursor-pointer">{t.sportGym}</span>
-          <span className="px-4 py-2 rounded-xl bg-white/3 border border-white/5 hover:border-cyan-400/20 hover:text-white transition-all cursor-pointer">{t.sportBadminton}</span>
-          <span className="px-4 py-2 rounded-xl bg-white/3 border border-white/5 hover:border-cyan-400/20 hover:text-white transition-all cursor-pointer">{t.sportCricket}</span>
-          <span className="px-4 py-2 rounded-xl bg-white/3 border border-white/5 hover:border-cyan-400/20 hover:text-white transition-all cursor-pointer">{t.sportFootball}</span>
-          <span className="px-4 py-2 rounded-xl bg-white/3 border border-white/5 hover:border-cyan-400/20 hover:text-white transition-all cursor-pointer">{t.sportYoga}</span>
+              {/* BODY OUTLINE */}
+              <ellipse cx="100" cy="38" rx="22" ry="27" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.4)" strokeWidth="1"/>
+              <rect x="89" y="60" width="22" height="18" rx="4" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.25)" strokeWidth="0.5"/>
+              <path d="M65 78 Q58 82 55 100 L52 175 Q52 185 60 188 L140 188 Q148 185 148 175 L145 100 Q142 82 135 78 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.35)" strokeWidth="1"/>
+
+              {/* CHEST muscles */}
+              <ellipse cx="82" cy="105" rx="18" ry="13" fill="rgba(99,102,241,0.25)" stroke="rgba(99,102,241,0.5)" strokeWidth="0.8"/>
+              <ellipse cx="118" cy="105" rx="18" ry="13" fill="rgba(99,102,241,0.25)" stroke="rgba(99,102,241,0.5)" strokeWidth="0.8"/>
+              <line x1="100" y1="80" x2="100" y2="130" stroke="rgba(99,102,241,0.3)" strokeWidth="0.8"/>
+
+              {/* SHOULDER caps */}
+              <ellipse cx="56" cy="92" rx="12" ry="10" fill="rgba(99,102,241,0.3)" stroke="rgba(99,102,241,0.5)" strokeWidth="0.8"/>
+              <ellipse cx="144" cy="92" rx="12" ry="10" fill="rgba(99,102,241,0.3)" stroke="rgba(99,102,241,0.5)" strokeWidth="0.8"/>
+
+              {/* SIX PACK abs */}
+              <rect x="86" y="133" width="11" height="10" rx="3" fill="rgba(99,102,241,0.35)" stroke="rgba(99,102,241,0.6)" strokeWidth="0.8"/>
+              <rect x="103" y="133" width="11" height="10" rx="3" fill="rgba(99,102,241,0.35)" stroke="rgba(99,102,241,0.6)" strokeWidth="0.8"/>
+              <rect x="86" y="147" width="11" height="10" rx="3" fill="rgba(99,102,241,0.35)" stroke="rgba(99,102,241,0.6)" strokeWidth="0.8"/>
+              <rect x="103" y="147" width="11" height="10" rx="3" fill="rgba(99,102,241,0.35)" stroke="rgba(99,102,241,0.6)" strokeWidth="0.8"/>
+              <rect x="87" y="161" width="11" height="10" rx="3" fill="rgba(99,102,241,0.28)" stroke="rgba(99,102,241,0.5)" strokeWidth="0.8"/>
+              <rect x="102" y="161" width="11" height="10" rx="3" fill="rgba(99,102,241,0.28)" stroke="rgba(99,102,241,0.5)" strokeWidth="0.8"/>
+              <line x1="100" y1="130" x2="100" y2="188" stroke="rgba(99,102,241,0.25)" strokeWidth="0.8"/>
+              <line x1="83" y1="144" x2="117" y2="144" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+              <line x1="83" y1="158" x2="117" y2="158" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+              <line x1="83" y1="172" x2="117" y2="172" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+
+              {/* LEFT ARM */}
+              <path d="M55 88 Q42 95 36 120 Q32 140 34 165 Q36 175 42 176 Q48 177 50 165 Q52 145 55 125 L58 100 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.3)" strokeWidth="0.8"/>
+              <ellipse cx="45" cy="120" rx="9" ry="14" fill="rgba(99,102,241,0.25)" stroke="rgba(99,102,241,0.45)" strokeWidth="0.8"/>
+              <path d="M34 165 Q31 185 32 210 Q33 218 38 218 Q43 218 44 210 Q45 190 48 170 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.6"/>
+              <ellipse cx="37" cy="222" rx="7" ry="9" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+
+              {/* RIGHT ARM */}
+              <path d="M145 88 Q158 95 164 120 Q168 140 166 165 Q164 175 158 176 Q152 177 150 165 Q148 145 145 125 L142 100 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.3)" strokeWidth="0.8"/>
+              <ellipse cx="155" cy="120" rx="9" ry="14" fill="rgba(99,102,241,0.25)" stroke="rgba(99,102,241,0.45)" strokeWidth="0.8"/>
+              <path d="M166 165 Q169 185 168 210 Q167 218 162 218 Q157 218 156 210 Q155 190 152 170 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.6"/>
+              <ellipse cx="163" cy="222" rx="7" ry="9" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+
+              {/* PELVIS */}
+              <path d="M60 188 Q60 200 70 205 L130 205 Q140 200 140 188 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.6"/>
+              <line x1="100" y1="188" x2="86" y2="205" stroke="rgba(99,102,241,0.25)" strokeWidth="0.8"/>
+              <line x1="100" y1="188" x2="114" y2="205" stroke="rgba(99,102,241,0.25)" strokeWidth="0.8"/>
+
+              {/* LEFT LEG upper */}
+              <path d="M70 205 Q62 215 60 245 Q58 275 60 305 Q62 318 70 320 Q78 322 80 308 Q84 280 85 248 L88 210 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.3)" strokeWidth="0.8"/>
+              <ellipse cx="71" cy="258" rx="10" ry="22" fill="rgba(99,102,241,0.25)" stroke="rgba(99,102,241,0.4)" strokeWidth="0.7"/>
+              <ellipse cx="71" cy="316" rx="9" ry="8" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.3)" strokeWidth="0.7"/>
+              <path d="M62 320 Q59 350 60 385 Q61 398 68 400 Q75 402 76 388 Q77 360 78 328 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.6"/>
+              <ellipse cx="69" cy="355" rx="8" ry="18" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.35)" strokeWidth="0.6"/>
+              <ellipse cx="68" cy="402" rx="10" ry="6" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+
+              {/* RIGHT LEG upper */}
+              <path d="M130 205 Q138 215 140 245 Q142 275 140 305 Q138 318 130 320 Q122 322 120 308 Q116 280 115 248 L112 210 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.3)" strokeWidth="0.8"/>
+              <ellipse cx="129" cy="258" rx="10" ry="22" fill="rgba(99,102,241,0.25)" stroke="rgba(99,102,241,0.4)" strokeWidth="0.7"/>
+              <ellipse cx="129" cy="316" rx="9" ry="8" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.3)" strokeWidth="0.7"/>
+              <path d="M138 320 Q141 350 140 385 Q139 398 132 400 Q125 402 124 388 Q123 360 122 328 Z"
+                    fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.6"/>
+              <ellipse cx="131" cy="355" rx="8" ry="18" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.35)" strokeWidth="0.6"/>
+              <ellipse cx="132" cy="402" rx="10" ry="6" fill="url(#skinGrad)" stroke="rgba(99,102,241,0.2)" strokeWidth="0.5"/>
+
+              {/* GLOW HIGHLIGHT on abs */}
+              <ellipse cx="100" cy="153" rx="16" ry="22" fill="rgba(99,102,241,0.08)" stroke="none"/>
+
+              {/* SPINE line */}
+              <line x1="100" y1="78" x2="100" y2="188" stroke="rgba(99,102,241,0.15)" strokeWidth="0.5" strokeDasharray="3,4"/>
+
+              {/* Scan line animation */}
+              <rect x="52" y="0" width="96" height="3" rx="1" fill="rgba(99,102,241,0.5)" opacity="0.7">
+                <animateTransform attributeName="transform" type="translate" values="0,75;0,415;0,75" dur="3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.7;0.2;0.7" dur="3s" repeatCount="indefinite"/>
+              </rect>
+
+              {/* Pulse dots on key muscles */}
+              <circle cx="100" cy="148" r="3" fill="rgba(99,102,241,0.9)">
+                <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.9;0.2;0.9" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="82" cy="105" r="2.5" fill="rgba(99,102,241,0.7)">
+                <animate attributeName="r" values="2.5;5;2.5" dur="2.3s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.7;0.1;0.7" dur="2.3s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="45" cy="120" r="2.5" fill="rgba(16,185,129,0.8)">
+                <animate attributeName="r" values="2.5;5;2.5" dur="1.9s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.8;0.1;0.8" dur="1.9s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="71" cy="258" r="2.5" fill="rgba(245,158,11,0.8)">
+                <animate attributeName="r" values="2.5;5;2.5" dur="2.1s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.8;0.1;0.8" dur="2.1s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+
+            {/* Floating muscle labels */}
+            <div style={{ position: 'absolute', top: '92px', left: '-42px' }} className="muscle-label">
+              <span>{lang === 'hinglish' ? 'Shoulders' : 'Shoulders'}</span>
+              <div style={{ width: '30px', height: '1px', background: 'rgba(99,102,241,0.4)' }}></div>
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#6366f1' }}></div>
+            </div>
+            <div style={{ position: 'absolute', top: '102px', left: '-22px' }} className="muscle-label">
+              <span>{lang === 'hinglish' ? 'Chest' : 'Chest'}</span>
+              <div style={{ width: '16px', height: '1px', background: 'rgba(99,102,241,0.4)' }}></div>
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#6366f1' }}></div>
+            </div>
+            <div style={{ position: 'absolute', top: '118px', left: '-26px', color: 'rgba(52,211,153,0.85)' }} className="muscle-label">
+              <span>{lang === 'hinglish' ? 'Biceps' : 'Biceps'}</span>
+              <div style={{ width: '18px', height: '1px', background: 'rgba(16,185,129,0.4)' }}></div>
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }}></div>
+            </div>
+            <div style={{ position: 'absolute', top: '148px', right: '-32px' }} className="muscle-label">
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#6366f1' }}></div>
+              <div style={{ width: '20px', height: '1px', background: 'rgba(99,102,241,0.4)' }}></div>
+              <span>{lang === 'hinglish' ? 'Abs/Six Pack' : 'Six Pack'}</span>
+            </div>
+            <div style={{ position: 'absolute', top: '258px', right: '-28px', color: 'rgba(251,191,36,0.85)' }} className="muscle-label">
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }}></div>
+              <div style={{ width: '16px', height: '1px', background: 'rgba(245,158,11,0.4)' }}></div>
+              <span>{lang === 'hinglish' ? 'Quads' : 'Quads'}</span>
+            </div>
+            <div style={{ position: 'absolute', top: '352px', right: '-24px', color: 'rgba(251,191,36,0.75)' }} className="muscle-label">
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b' }}></div>
+              <div style={{ width: '14px', height: '1px', background: 'rgba(245,158,11,0.35)' }}></div>
+              <span>{lang === 'hinglish' ? 'Calves' : 'Calves'}</span>
+            </div>
+          </div>
+
+          {/* Right Column: Features */}
+          <div className="landing-right-panel">
+            <div className="landing-feature-list">
+              <div className="landing-feat">
+                <div className="landing-feat-icon purple">🤖</div>
+                <div>
+                  <div className="landing-feat-title">{lang === 'hinglish' ? 'AI Workout Engine' : 'AI Workout Engine'}</div>
+                  <div className="landing-feat-sub">{lang === 'hinglish' ? 'Apne sets aur exercises ko progress ke mutabik weekly badlein' : 'Adaptive plans that adjust weekly to your progress'}</div>
+                </div>
+              </div>
+              
+              <div className="landing-feat">
+                <div className="landing-feat-icon teal">🥗</div>
+                <div>
+                  <div className="landing-feat-title">{lang === 'hinglish' ? 'AI Diet Planner' : 'AI Diet Planner'}</div>
+                  <div className="landing-feat-sub">{lang === 'hinglish' ? 'Paneer, Dahi, Oats ke sath calorie-based Indian food builder' : 'Custom Indian meal plans with macro tracking'}</div>
+                </div>
+              </div>
+
+              <div className="landing-feat">
+                <div className="landing-feat-icon amber">📊</div>
+                <div>
+                  <div className="landing-feat-title">{lang === 'hinglish' ? 'Progress Analytics' : 'Progress Analytics'}</div>
+                  <div className="landing-feat-sub">{lang === 'hinglish' ? 'Body weight, physical tapes aur graph details' : 'Body stats, strength curves, readiness score'}</div>
+                </div>
+              </div>
+
+              <div className="landing-feat">
+                <div className="landing-feat-icon purple">✅</div>
+                <div>
+                  <div className="landing-feat-title">{lang === 'hinglish' ? 'QR Attendance' : 'QR Attendance'}</div>
+                  <div className="landing-feat-sub">{lang === 'hinglish' ? 'Gym attendance mark karein aur streak log banayein' : 'Streak tracking and instant check-in'}</div>
+                </div>
+              </div>
+
+              <div className="landing-feat">
+                <div className="landing-feat-icon teal">💬</div>
+                <div>
+                  <div className="landing-feat-title">{lang === 'hinglish' ? 'AI Coach Chat' : 'AI Coach Chat'}</div>
+                  <div className="landing-feat-sub">{lang === 'hinglish' ? 'Ollama Llama 3.2 chatbot se local query answers instantly' : 'Ask anything — your AI coach answers instantly'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
-      </section>
+      </div>
 
       {/* 2. LIVE STATUS BANNER */}
       <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/3 border border-emerald-400/20 flex flex-col md:flex-row gap-4 items-start md:items-center">

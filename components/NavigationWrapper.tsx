@@ -14,7 +14,9 @@ import {
   Menu,
   X,
   Target,
-  Globe
+  Globe,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { localDb, UserProfile } from '@/lib/db';
 
@@ -39,6 +41,8 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [hasPlans, setHasPlans] = useState(false);
 
   useEffect(() => {
     // Load profile
@@ -46,6 +50,22 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     setProfile(currentProfile);
     if (currentProfile?.language) {
       setLanguage(currentProfile.language);
+    }
+
+    // Check if plans exist
+    const workout = localDb.getWorkoutPlan();
+    const diet = localDb.getDietPlan();
+    setHasPlans(!!workout && !!diet);
+    
+    // Load theme preference
+    const storedTheme = localStorage.getItem('fitcore_theme') as 'dark' | 'light' | null;
+    if (storedTheme) {
+      setTheme(storedTheme);
+      if (storedTheme === 'light') {
+        document.documentElement.classList.add('light');
+      } else {
+        document.documentElement.classList.remove('light');
+      }
     }
     
     // Add event listener to refresh profile when updated on profile page
@@ -55,6 +75,9 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       if (updatedProfile?.language) {
         setLanguage(updatedProfile.language);
       }
+      const w = localDb.getWorkoutPlan();
+      const d = localDb.getDietPlan();
+      setHasPlans(!!w && !!d);
     };
     window.addEventListener('fitcore_profile_updated', handleProfileUpdate);
     return () => {
@@ -70,8 +93,51 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     window.dispatchEvent(new CustomEvent('fitcore_language_changed', { detail: nextLang }));
   };
 
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('fitcore_theme', nextTheme);
+    if (nextTheme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    window.dispatchEvent(new CustomEvent('fitcore_theme_changed', { detail: nextTheme }));
+  };
+
+  if (!hasPlans) {
+    return (
+      <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)] flex-col" suppressHydrationWarning>
+        <main className="flex-1 min-h-screen flex flex-col">
+          <div className="flex-1 w-full mx-auto">
+            {children}
+          </div>
+        </main>
+        
+        {/* FLOATING PREFERENCES SWITCHER AT BOTTOM RIGHT */}
+        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center h-10 w-10 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 shadow-lg hover:scale-105 transition-all"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-yellow-400 animate-spin-slow" /> : <Moon className="h-4.5 w-4.5 text-purple-400" />}
+          </button>
+
+          <button
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 font-semibold text-xs tracking-wider shadow-lg hover:scale-105 transition-all"
+          >
+            <Globe className="h-4 w-4 text-cyan-400" />
+            <span>{language === 'english' ? 'English' : 'Hinglish'}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen bg-[#06080c] text-gray-100 flex-col md:flex-row" suppressHydrationWarning>
+    <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)] flex-col md:flex-row" suppressHydrationWarning>
       
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-[rgba(255,255,255,0.06)] fixed h-screen z-20">
@@ -167,11 +233,19 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
         })}
       </nav>
       
-      {/* FLOATING LANGUAGE SWITCHER AT BOTTOM RIGHT */}
-      <div className="fixed bottom-20 md:bottom-6 right-6 z-40">
+      {/* FLOATING PREFERENCES SWITCHER AT BOTTOM RIGHT */}
+      <div className="fixed bottom-20 md:bottom-6 right-6 z-40 flex items-center gap-2">
+        <button
+          onClick={toggleTheme}
+          className="flex items-center justify-center h-10 w-10 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 shadow-lg hover:scale-105 transition-all"
+          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        >
+          {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-yellow-400 animate-spin-slow" /> : <Moon className="h-4.5 w-4.5 text-purple-400" />}
+        </button>
+
         <button
           onClick={toggleLanguage}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 font-semibold text-xs tracking-wider shadow-lg hover:scale-105 transition-all animate-pulse-neon"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 font-semibold text-xs tracking-wider shadow-lg hover:scale-105 transition-all"
         >
           <Globe className="h-4 w-4 text-cyan-400" />
           <span>{language === 'english' ? 'English' : 'Hinglish'}</span>
@@ -179,5 +253,6 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       </div>
       
     </div>
+
   );
 }

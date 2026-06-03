@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} dark h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full bg-[#06080c] text-gray-100 flex flex-col font-sans" suppressHydrationWarning>
+      <body className="min-h-full bg-[var(--background)] text-[var(--foreground)] flex flex-col font-sans" suppressHydrationWarning>
         <NavigationWrapper>
           {children}
         </NavigationWrapper>
