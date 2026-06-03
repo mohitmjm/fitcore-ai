@@ -244,9 +244,10 @@ export default function DashboardOrLanding() {
   const [latestLog, setLatestLog] = useState<ProgressLog | null>(null);
   const [todayStr, setTodayStr] = useState('');
   
-  // Localization State
+  // Localization & Auth State
   const [lang, setLang] = useState<'english' | 'hinglish'>('english');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Registration Form States
   const [gymName, setGymName] = useState('');
@@ -272,11 +273,12 @@ export default function DashboardOrLanding() {
       setLatestLog(logs[logs.length - 1]);
     }
 
-    // Load initial theme
+    // Load initial theme & login
     const storedTheme = localStorage.getItem('fitcore_theme') as 'dark' | 'light' | null;
     if (storedTheme) {
       setTheme(storedTheme);
     }
+    setIsLoggedIn(localStorage.getItem('fitcore_logged_in') === 'true');
 
     // Listen for language toggles in bottom right
     const handleLanguageToggle = (e: Event) => {
@@ -305,6 +307,7 @@ export default function DashboardOrLanding() {
       setLang(p.language || 'english');
       setWorkoutPlan(localDb.getWorkoutPlan());
       setDietPlan(localDb.getDietPlan());
+      setIsLoggedIn(localStorage.getItem('fitcore_logged_in') === 'true');
     });
 
     return () => {
@@ -421,13 +424,14 @@ export default function DashboardOrLanding() {
     }
   };
 
+  // -------------------------------------------------------------
+  // RENDERING PART A: ACTIVE MEMBER DASHBOARD & SETUP GATES
+  // -------------------------------------------------------------
   const hasPlans = workoutPlan && dietPlan;
   const t = TRANSLATIONS[lang];
 
-  // -------------------------------------------------------------
-  // RENDERING PART A: ACTIVE MEMBER DASHBOARD
-  // -------------------------------------------------------------
-  if (hasPlans) {
+  if (isLoggedIn) {
+    if (hasPlans) {
     const todayExercises = workoutPlan.plan_data[0]?.exercises || [];
     const completedTodayList = workoutPlan.completed_exercises?.[todayStr] || [];
     const exercisesCompletedCount = todayExercises.filter(ex => completedTodayList.includes(ex.name)).length;
@@ -582,6 +586,29 @@ export default function DashboardOrLanding() {
         </div>
       </div>
     );
+    } else {
+      // Logged in but no plans setup onboarding
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-6 animate-[fadeIn_0.4s_ease-out]">
+          <div className="h-16 w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+            <Sparkles className="h-8 w-8 text-cyan-400" />
+          </div>
+          <div className="max-w-md space-y-2">
+            <h2 className="text-2xl font-bold text-white">Generate Your AI Fitness Blueprint</h2>
+            <p className="text-gray-400 text-sm">
+              Welcome, <span className="text-cyan-400 font-semibold">{profile?.name || 'Champion'}</span>! Setup your goals, measurements, and dietary settings to trigger Llama 3.2 workout and meal generators.
+            </p>
+          </div>
+          <Link
+            href="/profile"
+            className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl text-sm font-semibold hover:scale-[1.02] shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Complete Profile Setup
+          </Link>
+        </div>
+      );
+    }
   }
 
   // -------------------------------------------------------------
@@ -598,8 +625,9 @@ export default function DashboardOrLanding() {
             <a href="#features" className="nav-link">Features</a>
             <a href="#pricing" className="nav-link">Plans</a>
             <button onClick={handleInstantDemo} className="nav-link border-none bg-transparent hover:text-cyan-400 font-medium">Instant Demo</button>
+            <Link href="/login?mode=login" className="nav-link border-none bg-transparent hover:text-cyan-400 font-semibold">Login</Link>
           </div>
-          <Link href="/profile" className="nav-cta text-center hover:scale-105 transition-transform">Get Started</Link>
+          <Link href="/login?mode=signup" className="nav-cta text-center hover:scale-105 transition-transform">Get Started</Link>
         </div>
 
         <div className="grid-lines"></div>
@@ -621,7 +649,7 @@ export default function DashboardOrLanding() {
             </p>
             
             <div className="landing-cta-group">
-              <Link href="/profile" className="landing-btn-primary flex items-center gap-2 hover:scale-[1.02] transition-transform">
+              <Link href="/login?mode=signup" className="landing-btn-primary flex items-center gap-2 hover:scale-[1.02] transition-transform">
                 <Zap className="h-4 w-4 text-yellow-300 animate-pulse" />
                 {lang === 'hinglish' ? 'Trial Shuru Karein' : 'Start Free Trial'}
               </Link>
@@ -1066,7 +1094,7 @@ export default function DashboardOrLanding() {
             </ul>
 
             <Link
-              href="/profile"
+              href="/login?mode=signup"
               className="block w-full py-4 text-center bg-cyan-500 hover:bg-cyan-400 text-black font-extrabold text-sm rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.01]"
             >
               {t.planBtn}
