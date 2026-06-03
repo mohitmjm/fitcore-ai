@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { 
   Home, 
   Dumbbell, 
@@ -16,7 +16,8 @@ import {
   Target,
   Globe,
   Sun,
-  Moon
+  Moon,
+  LogOut
 } from 'lucide-react';
 import { localDb, UserProfile } from '@/lib/db';
 
@@ -37,9 +38,9 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 export default function NavigationWrapper({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [hasPlans, setHasPlans] = useState(false);
