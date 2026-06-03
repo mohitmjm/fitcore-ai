@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Zap, User, Lock, Mail, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Zap, Sparkles, User, Lock, Phone, Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { localDb } from '@/lib/db';
 
 function LoginContent() {
@@ -18,6 +18,12 @@ function LoginContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    // Redirect if already logged in
+    if (localStorage.getItem('fitcore_logged_in') === 'true') {
+      router.push('/');
+      return;
+    }
+
     // Read pre-selected mode from query param
     const mode = searchParams.get('mode');
     if (mode === 'signup') {
@@ -25,13 +31,18 @@ function LoginContent() {
     } else {
       setActiveTab('login');
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    // Simulate API call delay
     setTimeout(() => {
+      // Set session logged in
       localStorage.setItem('fitcore_logged_in', 'true');
+      
+      // Ensure profile and default plans exist so they don't see empty dashboard
       const profile = localDb.getProfile();
       if (!profile.name || profile.name === 'Flex Champion') {
         localDb.updateProfile({
@@ -40,11 +51,16 @@ function LoginContent() {
           phone: !emailOrPhone.includes('@') ? emailOrPhone : undefined
         });
       }
+
+      // Check if plans exist, if not, generate default mock plans to avoid blank screens
       const w = localDb.getWorkoutPlan();
       const d = localDb.getDietPlan();
       if (!w || !d) {
+        // Seed default plans
         seedMockData();
       }
+
+      // Dispatch event to update navbar/wrapper
       window.dispatchEvent(new Event('fitcore_profile_updated'));
       setIsSubmitting(false);
       router.push('/');
@@ -54,15 +70,23 @@ function LoginContent() {
   const handleSignupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
     setTimeout(() => {
+      // Set session logged in
       localStorage.setItem('fitcore_logged_in', 'true');
+      
+      // Update name and email/phone in profile
       localDb.updateProfile({
         name: name,
         email: emailOrPhone.includes('@') ? emailOrPhone : 'user@fitcore.ai',
         phone: !emailOrPhone.includes('@') ? emailOrPhone : undefined
       });
+
+      // Dispatch profile updated event
       window.dispatchEvent(new Event('fitcore_profile_updated'));
       setIsSubmitting(false);
+      
+      // Redirect to profile setup to generate custom AI plans
       router.push('/profile');
     }, 800);
   };
@@ -71,6 +95,8 @@ function LoginContent() {
     setIsSubmitting(true);
     setTimeout(() => {
       localStorage.setItem('fitcore_logged_in', 'true');
+      
+      // Save default profile parameters
       localDb.updateProfile({
         name: 'Flex Champion',
         email: 'demo@fitcore.ai',
@@ -82,7 +108,9 @@ function LoginContent() {
         height_cm: 180,
         language: 'english'
       });
+      
       seedMockData();
+      
       window.dispatchEvent(new Event('fitcore_profile_updated'));
       setIsSubmitting(false);
       router.push('/');
@@ -125,7 +153,13 @@ function LoginContent() {
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center p-4">
+      <div className="absolute inset-0 -top-40 bg-gradient-radial-neon opacity-30 pointer-events-none -z-10" />
+      
       <div className="w-full max-w-md glass-panel rounded-3xl border border-white/10 p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+        {/* Glow accent */}
+        <div className="absolute -top-10 -right-10 h-28 w-28 bg-cyan-500/10 blur-2xl rounded-full" />
+        
+        {/* BRAND HEADER */}
         <div className="text-center space-y-2">
           <div className="inline-flex h-12 w-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-purple-500 items-center justify-center shadow-lg">
             <Zap className="h-6 w-6 text-white animate-pulse" />
@@ -160,6 +194,7 @@ function LoginContent() {
           </button>
         </div>
 
+        {/* FORM SECTION */}
         {activeTab === 'login' ? (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="space-y-1.5">
@@ -269,7 +304,7 @@ function LoginContent() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:scale-[1.01] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)] flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? 'Creating account...' : 'Create Account & Continue'}
               <ArrowRight className="h-4 w-4" />
