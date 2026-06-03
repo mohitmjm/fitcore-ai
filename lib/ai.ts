@@ -41,7 +41,7 @@ function getFallbackAIResponse(prompt: string): string {
   const promptLower = prompt.toLowerCase();
   
   // 1. WORKOUT PLAN GENERATION FALLBACK
-  if (promptLower.includes("workout plan") || promptLower.includes("coach")) {
+  if (promptLower.includes("generate a") && (promptLower.includes("workout") || promptLower.includes("training"))) {
     // Extract info if possible
     const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
     const experienceMatch = prompt.match(/level\s*person\s*with\s*goal|([a-zA-Z]+)\s*level/i);
@@ -143,7 +143,7 @@ function getFallbackAIResponse(prompt: string): string {
   }
   
   // 2. DIET PLAN GENERATION FALLBACK
-  if (promptLower.includes("diet") || promptLower.includes("nutritionist") || promptLower.includes("meal")) {
+  if (promptLower.includes("create a") && (promptLower.includes("diet") || promptLower.includes("meal") || promptLower.includes("nutrition"))) {
     const typeMatch = prompt.match(/diet:\s*([a-zA-Z\-]+)/i);
     const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
     const weightMatch = prompt.match(/(\d+)\s*kg/i);
