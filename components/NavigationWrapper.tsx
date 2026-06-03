@@ -43,20 +43,24 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [hasPlans, setHasPlans] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
+    // Check if user is logged in
+    const logged = localStorage.getItem('fitcore_logged_in') === 'true';
+    setIsLoggedIn(logged);
+    
+    // Security redirect gate
+    if (!logged && pathname !== '/' && pathname !== '/login') {
+      router.push('/login');
+    }
+
     // Load profile
     const currentProfile = localDb.getProfile();
     setProfile(currentProfile);
     if (currentProfile?.language) {
       setLanguage(currentProfile.language);
     }
-
-    // Check if plans exist
-    const workout = localDb.getWorkoutPlan();
-    const diet = localDb.getDietPlan();
-    setHasPlans(!!workout && !!diet);
     
     // Load theme preference
     const storedTheme = localStorage.getItem('fitcore_theme') as 'dark' | 'light' | null;
@@ -76,15 +80,14 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       if (updatedProfile?.language) {
         setLanguage(updatedProfile.language);
       }
-      const w = localDb.getWorkoutPlan();
-      const d = localDb.getDietPlan();
-      setHasPlans(!!w && !!d);
+      const loggedInNow = localStorage.getItem('fitcore_logged_in') === 'true';
+      setIsLoggedIn(loggedInNow);
     };
     window.addEventListener('fitcore_profile_updated', handleProfileUpdate);
     return () => {
       window.removeEventListener('fitcore_profile_updated', handleProfileUpdate);
     };
-  }, []);
+  }, [pathname]);
 
   const toggleLanguage = () => {
     const nextLang = language === 'english' ? 'hinglish' : 'english';
@@ -106,7 +109,19 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     window.dispatchEvent(new CustomEvent('fitcore_theme_changed', { detail: nextTheme }));
   };
 
-  if (!hasPlans) {
+  const handleLogout = () => {
+    localStorage.removeItem('fitcore_logged_in');
+    setIsLoggedIn(false);
+    
+    // Optional: Clear active plans on logout if desired
+    // localStorage.removeItem('fitcore_workout_plan');
+    // localStorage.removeItem('fitcore_diet_plan');
+    
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+    router.push('/');
+  };
+
+  if (!isLoggedIn) {
     return (
       <div className="flex min-h-screen bg-[var(--background)] text-[var(--foreground)] flex-col" suppressHydrationWarning>
         <main className="flex-1 min-h-screen flex flex-col">
@@ -172,9 +187,9 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
           })}
         </div>
 
-        {/* QUICK USER SUMMARY BOX IN SIDEBAR */}
-        {profile && (
-          <div className="p-4 border-t border-[rgba(255,255,255,0.06)] bg-white/2">
+        {/* PROFILE SUMMARY & LOGOUT IN SIDEBAR BOTTOM */}
+        <div className="p-4 border-t border-[rgba(255,255,255,0.06)] bg-white/2 space-y-3">
+          {profile && (
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-md">
                 {profile.name ? profile.name[0].toUpperCase() : 'U'}
@@ -187,8 +202,15 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/5 border border-transparent hover:border-red-500/10 transition-all font-semibold text-xs tracking-wider uppercase"
+          >
+            <LogOut className="h-4.5 w-4.5 text-gray-500 hover:text-red-400" />
+            <span>Log Out</span>
+          </button>
+        </div>
       </aside>
 
       {/* MOBILE HEADER */}
@@ -198,11 +220,21 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
           <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">FITCORE AI</span>
         </Link>
         
-        {profile && (
-          <Link href="/profile" className="h-8 w-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
-            {profile.name ? profile.name[0].toUpperCase() : 'U'}
-          </Link>
-        )}
+        <div className="flex items-center gap-3.5">
+          {profile && (
+            <Link href="/profile" className="h-8 w-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
+              {profile.name ? profile.name[0].toUpperCase() : 'U'}
+            </Link>
+          )}
+          
+          <button 
+            onClick={handleLogout}
+            className="p-2 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/5 hover:border-red-500/20 rounded-lg transition-all"
+            title="Log Out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </header>
 
       {/* MAIN CONTENT AREA */}
