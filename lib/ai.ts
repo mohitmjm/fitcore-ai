@@ -1,23 +1,34 @@
 export async function callAI(prompt: string, format?: 'json'): Promise<string> {
-  const ollamaUrl = (process.env.OLLAMA_API_URL || 'http://localhost:11434').replace(/\/$/, '');
+  const hfToken = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || '';
+  const model = process.env.HUGGINGFACE_MODEL || 'deepseek-ai/DeepSeek-V4-Pro';
   
+  // If no token is provided, warn and use local fallback
+  if (!hfToken) {
+    console.warn("Hugging Face API key missing. Using fallback mock generation.");
+    return getFallbackAIResponse(prompt);
+  }
+
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
     
     const reqBody: any = {
-      model: "llama3.2",
-      prompt: prompt,
-      stream: false
+      model: model,
+      messages: [
+        { role: "user", content: prompt }
+      ],
+      provider: "hf-inference"
     };
+    
     if (format === 'json') {
-      reqBody.format = 'json';
+      reqBody.response_format = { type: "json_object" };
     }
     
-    const res = await fetch(`${ollamaUrl}/api/generate`, {
+    const res = await fetch("https://api-inference.huggingface.co/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${hfToken}`
       },
       body: JSON.stringify(reqBody),
       signal: controller.signal
@@ -26,13 +37,18 @@ export async function callAI(prompt: string, format?: 'json'): Promise<string> {
     clearTimeout(timeoutId);
     
     if (!res.ok) {
-      throw new Error(`Ollama server returned status ${res.status}`);
+      const errorText = await res.text().catch(() => "");
+      throw new Error(`Hugging Face API returned status ${res.status}: ${errorText}`);
     }
     
     const data = await res.json();
-    return data.response;
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      return data.choices[0].message.content || '';
+    } else {
+      throw new Error("Invalid response format from Hugging Face API");
+    }
   } catch (error) {
-    console.warn("Ollama API failed or offline, using fallback mock generation:", error);
+    console.warn("Hugging Face API call failed, using fallback mock generation:", error);
     return getFallbackAIResponse(prompt);
   }
 }

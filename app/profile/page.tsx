@@ -496,8 +496,8 @@ export default function ProfilePage() {
       <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-yellow-500 flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
         <div className="text-xs space-y-1">
-          <span className="font-semibold block">Ollama GPU Connection Note:</span>
-          <span>Ensure your Ollama local server is running Llama 3.2 8B model (`ollama run llama3.2`) at `http://localhost:11434`. If Ollama is offline or takes too long, FitCore AI will activate an offline mock plan builder to preserve functionality.</span>
+          <span className="font-semibold block">Hugging Face API Connection Note:</span>
+          <span>Ensure your Hugging Face API key is configured in your environment variables (`HUGGINGFACE_API_KEY` or `HF_TOKEN`). If the API key is missing or the request times out, FitCore AI will activate an offline mock plan builder to preserve functionality.</span>
         </div>
       </div>
     </div>

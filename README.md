@@ -2,7 +2,7 @@
 
 FitCore AI is a premium, full-stack personal fitness companion web application. It is designed to create customized workout plans, structure Indian macro meal logs, track progress metrics and photographs, and provide a direct chat interface with an AI coach.
 
-All AI features run locally using a self-hosted **Ollama** instance with **Llama 3.2 (8B)**, ensuring complete privacy, zero external API costs, and full offline capabilities.
+All AI features run using Hugging Face Serverless Inference with **DeepSeek V4 Pro**, ensuring zero local hardware costs and instant response speeds.
 
 ---
 
@@ -24,7 +24,7 @@ All AI features run locally using a self-hosted **Ollama** instance with **Llama
 *   **Charts & Visuals**: Recharts (responsive line/area plots)
 *   **Icons**: Lucide React
 *   **Database**: Supabase (PostgreSQL) with local fallback layer
-*   **Local AI Inference**: Ollama API running Llama 3.2 8B (`http://localhost:11434`)
+*   **AI Inference**: Hugging Face Serverless Inference API running DeepSeek V4 Pro (`deepseek-ai/DeepSeek-V4-Pro`)
 
 ---
 
@@ -32,13 +32,10 @@ All AI features run locally using a self-hosted **Ollama** instance with **Llama
 
 ### 1. Prerequisites
 *   Node.js (v18.0.0 or higher)
-*   Ollama (installed and running locally)
+*   Hugging Face account (with an active User Access Token)
 
-### 2. Setup local AI
-Ensure Ollama is running and pull the Llama 3.2 model:
-```bash
-ollama pull llama3.2
-```
+### 2. Setup Hugging Face Token
+Create a Hugging Face account and generate a User Access Token. Set this token in your `.env.local` configuration.
 
 ### 3. Install Dependencies
 Clone the repository and install the packages:
@@ -54,7 +51,7 @@ Configure your keys in `.env.local` to connect:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-OLLAMA_API_URL=http://localhost:11434
+HUGGINGFACE_API_KEY=your-huggingface-token
 ```
 *Note: If these keys are left empty, the application will run in Offline LocalStorage Mode automatically.*
 
