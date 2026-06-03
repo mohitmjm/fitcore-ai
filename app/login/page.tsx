@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Zap, User, Lock, Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Zap, User, Lock, Mail, ArrowRight, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { localDb } from '@/lib/db';
 
 export default function LoginPage() {
@@ -29,6 +29,11 @@ export default function LoginPage() {
           phone: !emailOrPhone.includes('@') ? emailOrPhone : undefined
         });
       }
+      const w = localDb.getWorkoutPlan();
+      const d = localDb.getDietPlan();
+      if (!w || !d) {
+        seedMockData();
+      }
       window.dispatchEvent(new Event('fitcore_profile_updated'));
       setIsSubmitting(false);
       router.push('/');
@@ -49,6 +54,62 @@ export default function LoginPage() {
       setIsSubmitting(false);
       router.push('/profile');
     }, 800);
+  };
+
+  const handleInstantDemo = () => {
+    setIsSubmitting(true);
+    setTimeout(() => {
+      localStorage.setItem('fitcore_logged_in', 'true');
+      localDb.updateProfile({
+        name: 'Flex Champion',
+        email: 'demo@fitcore.ai',
+        goal: 'muscle gain',
+        experience: 'intermediate',
+        equipment: 'gym',
+        days_per_week: 4,
+        weight_kg: 75,
+        height_cm: 180,
+        language: 'english'
+      });
+      seedMockData();
+      window.dispatchEvent(new Event('fitcore_profile_updated'));
+      setIsSubmitting(false);
+      router.push('/');
+    }, 500);
+  };
+
+  const seedMockData = () => {
+    const mockWorkout = [
+      {
+        day: "Day 1 - Push Day",
+        exercises: [
+          { name: "Bench Press", sets: 4, reps: "8-10", rest_seconds: 90, muscle_group: "Chest", tip: "Arch your lower back slightly and drive feet into the floor." },
+          { name: "Overhead Shoulder Press", sets: 3, reps: "10", rest_seconds: 75, muscle_group: "Shoulders", tip: "Keep core tight, don't flare elbows out." },
+          { name: "Incline Dumbbell Flyes", sets: 3, reps: "12", rest_seconds: 60, muscle_group: "Chest", tip: "Maintain a slight bend in elbows throughout." },
+          { name: "Tricep Pushdowns", sets: 3, reps: "12-15", rest_seconds: 60, muscle_group: "Triceps", tip: "Lock your elbows to your sides." }
+        ]
+      },
+      {
+        day: "Day 2 - Pull Day",
+        exercises: [
+          { name: "Lat Pulldown", sets: 4, reps: "10", rest_seconds: 90, muscle_group: "Back", tip: "Pull down to your upper chest, squeezing shoulder blades." },
+          { name: "Barbell Rows", sets: 3, reps: "8", rest_seconds: 75, muscle_group: "Back", tip: "Keep torso at 45 degrees, pull bar to navel." },
+          { name: "Bicep Barbell Curls", sets: 3, reps: "10-12", rest_seconds: 60, muscle_group: "Biceps", tip: "Keep chest up and elbows pinned to waist." }
+        ]
+      }
+    ];
+    localDb.saveWorkoutPlan(mockWorkout, 'intermediate');
+
+    const mockDiet = [
+      {
+        day: "Monday",
+        breakfast: { name: "Oatmeal with Almonds & Honey + 3 Egg Whites", calories: 450, protein_g: 30, carbs_g: 50, fat_g: 12 },
+        lunch: { name: "Grilled Chicken Breast with Brown Rice & Broccoli", calories: 550, protein_g: 45, carbs_g: 60, fat_g: 8 },
+        dinner: { name: "Paneer Stir Fry with Mixed Vegetables & Quinoa", calories: 500, protein_g: 25, carbs_g: 40, fat_g: 18 },
+        snacks: { name: "Whey Protein Shake + 1 Banana", calories: 250, protein_g: 28, carbs_g: 30, fat_g: 3 }
+      }
+    ];
+    localDb.saveDietPlan(mockDiet);
   };
 
   return (
@@ -204,6 +265,19 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+
+        {/* MOCK DEMO GATEWAY */}
+        <div className="border-t border-white/5 pt-5 space-y-3.5 text-center">
+          <p className="text-[10px] text-gray-500">Want to test the app features directly?</p>
+          <button
+            onClick={handleInstantDemo}
+            disabled={isSubmitting}
+            className="w-full py-3 bg-white/5 border border-white/10 hover:border-cyan-500/30 rounded-xl text-xs font-bold text-gray-300 hover:text-cyan-400 hover:bg-[#0b0e14]/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            <Sparkles className="h-4 w-4 text-cyan-400" />
+            Try Instant Demo Account
+          </button>
+        </div>
       </div>
     </div>
   );
