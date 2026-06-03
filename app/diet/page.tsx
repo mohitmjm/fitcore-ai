@@ -419,12 +419,23 @@ export default function DietPage() {
             <div className="space-y-2.5">
               <h4 className="text-sm font-bold text-white uppercase tracking-wider">Instructions</h4>
               <ul className="space-y-2 text-xs text-gray-300">
-                {generatedRecipe.instructions.map((step: string, sIdx: number) => (
-                  <li key={sIdx} className="leading-relaxed flex gap-2">
+                {Array.isArray(generatedRecipe.instructions) ? (
+                  generatedRecipe.instructions.map((step: string, sIdx: number) => (
+                    <li key={sIdx} className="leading-relaxed flex gap-2">
+                      <span className="text-emerald-400 font-bold">•</span>
+                      <span>{step}</span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="leading-relaxed flex gap-2">
                     <span className="text-emerald-400 font-bold">•</span>
-                    <span>{step}</span>
+                    <span>
+                      {typeof generatedRecipe.instructions === 'string' 
+                        ? generatedRecipe.instructions 
+                        : 'No instructions generated. Please try again.'}
+                    </span>
                   </li>
-                ))}
+                )}
               </ul>
             </div>
           </div>
