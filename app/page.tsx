@@ -912,18 +912,12 @@ export default function DashboardOrLanding() {
             <span className="text-3xl block mb-4">🏸</span>
             <h4 className="text-base font-bold text-white uppercase tracking-wide">Badminton</h4>
             <p className="text-xs text-gray-400 mt-2 leading-relaxed">{t.badmintonDesc}</p>
-            <span className="inline-block mt-5 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-400 text-[10px] font-bold uppercase tracking-wider">
-              Soon
-            </span>
           </div>
 
           <div className="glass-panel rounded-2xl p-6 opacity-60 border-t-4 border-purple-400">
             <span className="text-3xl block mb-4">🏏</span>
             <h4 className="text-base font-bold text-white uppercase tracking-wide">Cricket</h4>
             <p className="text-xs text-gray-400 mt-2 leading-relaxed">{t.cricketDesc}</p>
-            <span className="inline-block mt-5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-[10px] font-bold uppercase tracking-wider">
-              Soon
-            </span>
           </div>
         </div>
       </section>
