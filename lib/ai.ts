@@ -345,5 +345,17 @@ function getFallbackAIResponse(prompt: string): string {
   }
 
   // 6. CHAT COACH CHAT FALLBACK
+  const isHinglish = promptLower.includes("hinglish") || 
+                     promptLower.includes("kya") || 
+                     promptLower.includes("kaise") || 
+                     promptLower.includes("aaj") || 
+                     promptLower.includes("hai") ||
+                     promptLower.includes("karu") ||
+                     promptLower.includes("karna");
+                     
+  if (isHinglish) {
+    return "Yeh ek behad accha fitness sawaal hai! Consistency hi sabse badi key hai. Koshish karein ki aap roz 7-8 ghante ki acchi neend lein, din me 3-4 liters paani peeyein, aur apne daily protein goal (lagbhag 1.6g - 2.2g per kg bodyweight) ko hit karein. Agar aapko workout ya diet plan me koi specific badlav chahiye, toh mujhe batayein!";
+  }
+  
   return "That is an excellent fitness question! Consistency is key. Ensure you are getting at least 7-8 hours of sleep, drinking 3-4 liters of water daily, and hitting your protein goal (around 1.6g - 2.2g per kg of bodyweight). If you need specific changes to your workouts or diet plan, let me know, and we can adjust the variables!";
 }

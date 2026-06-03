@@ -9,9 +9,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Message content is required' }, { status: 400 });
     }
 
-    let systemInstructions = "You are a professional, motivating fitness and nutrition coach. Answer the user's questions clearly, accurately, and encouragingly. Always reply in English.";
+    const msgLower = message.toLowerCase();
+    const isHinglishInput = 
+      msgLower.includes("kya") || 
+      msgLower.includes("kaise") || 
+      msgLower.includes("aaj") || 
+      msgLower.includes("batao") || 
+      msgLower.includes("karu") || 
+      msgLower.includes("karna") || 
+      msgLower.includes("hai") || 
+      msgLower.includes("chahiye") ||
+      msgLower.includes("nhi") ||
+      msgLower.includes("nahi") ||
+      msgLower.includes("bataiyye");
+
+    let systemInstructions = "You are a professional, motivating fitness and nutrition coach. Answer the user's questions clearly, accurately, and encouragingly. Always reply in English. Note: If the user communicates in Hinglish/Hindi, you should respond in Hinglish as well.";
     
-    if (language === 'hinglish') {
+    if (language === 'hinglish' || isHinglishInput) {
       systemInstructions = "You are a professional, motivating fitness and nutrition coach. Answer the user's questions clearly, accurately, and encouragingly. Crucial Language Requirement: You MUST reply in Hinglish (Hindi written using the English/Latin alphabet, for example: 'Kaise ho? Aaj workout kiya? Workout ke baad protein intake badhao aur hydration ka dhyan rakho'). Keep formatting clean.";
     }
 

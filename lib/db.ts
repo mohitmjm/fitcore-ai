@@ -293,9 +293,9 @@ export const localDb = {
 
   getProgressLogs: (): ProgressLog[] => {
     const current = getLocalStorage<ProgressLog[]>('fitcore_progress_logs', []);
-    if (current.length === 0) {
+    const profile = localDb.getProfile();
+    if (current.length === 0 && profile.id === DEFAULT_USER_ID) {
       // Seed default logs so the chart isn't empty on first start
-      const profile = localDb.getProfile();
       const seed: ProgressLog[] = [
         {
           id: '1',
@@ -409,12 +409,16 @@ export const localDb = {
   getChatMessages: (): ChatMessage[] => {
     const messages = getLocalStorage<ChatMessage[]>('fitcore_chat_messages', []);
     if (messages.length === 0) {
+      const profile = localDb.getProfile();
+      const isHinglish = profile.language === 'hinglish';
       const initial: ChatMessage[] = [
         {
           id: 'welcome',
-          user_id: DEFAULT_USER_ID,
+          user_id: profile.id,
           sender: 'ai',
-          message: 'Hi there! I am your FitCore AI coach. How can I help you with your fitness and nutrition goals today?',
+          message: isHinglish 
+            ? 'Hi there! Main aapka FitCore AI coach hoon. Aaj aapke fitness aur nutrition goals me main aapki kya madad kar sakta hoon?'
+            : 'Hi there! I am your FitCore AI coach. How can I help you with your fitness and nutrition goals today?',
           created_at: new Date().toISOString()
         }
       ];
