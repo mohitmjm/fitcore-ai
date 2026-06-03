@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
     const prompt = `You are a certified nutritionist. Create a 7-day Indian meal plan for a ${weight_kg}kg, ${height_cm}cm person. Goal: ${goal}. Diet: ${diet_type}. Allergies: ${allergiesStr}. Return ONLY JSON as a JSON array of 7 items (days), where each day has: "day" (string, e.g. "Monday"), "breakfast" (object), "lunch" (object), "dinner" (object), "snacks" (object). Each meal object must contain fields: "name" (string), "calories" (number), "protein_g" (number), "carbs_g" (number), "fat_g" (number). Do not include conversational text or markdown code fences.`;
 
-    const rawResponse = await callAI(prompt);
+    const rawResponse = await callAI(prompt, 'json');
     
     let planData;
     try {

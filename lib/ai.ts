@@ -1,21 +1,25 @@
-export async function callAI(prompt: string): Promise<string> {
+export async function callAI(prompt: string, format?: 'json'): Promise<string> {
   const ollamaUrl = (process.env.OLLAMA_API_URL || 'http://localhost:11434').replace(/\/$/, '');
   
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
     
+    const reqBody: any = {
+      model: "llama3.2",
+      prompt: prompt,
+      stream: false
+    };
+    if (format === 'json') {
+      reqBody.format = 'json';
+    }
+    
     const res = await fetch(`${ollamaUrl}/api/generate`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: "llama3.2",
-        prompt: prompt,
-        stream: false,
-        format: "json"
-      }),
+      body: JSON.stringify(reqBody),
       signal: controller.signal
     });
     

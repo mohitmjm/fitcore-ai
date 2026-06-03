@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
     const prompt = `You are a professional fitness coach. Generate a ${days}-day workout plan for a ${experience} level person with goal: ${goal}, equipment: ${equipment}. Return ONLY a JSON array where each item has: "day" (string, e.g. "Day 1"), and "exercises" (array of objects, each with fields: "name" (string), "sets" (number), "reps" (string or number, e.g. 10 or "12-15"), "rest_seconds" (number), "muscle_group" (string), "tip" (string)). Do not include any conversation, markdown tags, or extra text.`;
 
-    const rawResponse = await callAI(prompt);
+    const rawResponse = await callAI(prompt, 'json');
     
     // Attempt to parse JSON response. Occasionally models return backticks or wrapping, let's sanitize it.
     let planData;
