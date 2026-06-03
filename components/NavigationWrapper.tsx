@@ -19,7 +19,7 @@ import {
   Moon,
   LogOut
 } from 'lucide-react';
-import { localDb, UserProfile } from '@/lib/db';
+import { localDb, UserProfile, isSupabaseConfigured, syncFromSupabase, supabase } from '@/lib/db';
 
 interface NavItem {
   name: string;
@@ -60,6 +60,40 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     setProfile(currentProfile);
     if (currentProfile?.language) {
       setLanguage(currentProfile.language);
+    }
+
+    // Sync with Supabase on session start
+    if (logged && isSupabaseConfigured && currentProfile?.email) {
+      syncFromSupabase(currentProfile.email).then((hasCloudProfile) => {
+        if (!hasCloudProfile && supabase) {
+          // If profile doesn't exist on Supabase, let's create it and migrate local storage data!
+          const prof = localDb.getProfile();
+          supabase.from('users').insert({
+            email: prof.email.toLowerCase().trim(),
+            name: prof.name,
+            gender: prof.gender || null,
+            dob: prof.dob || null,
+            goal: prof.goal || null,
+            experience: prof.experience || null,
+            equipment: prof.equipment || null,
+            days_per_week: prof.days_per_week || null,
+            diet_type: prof.diet_type || null,
+            diet_goal: prof.diet_goal || null,
+            allergies: prof.allergies || [],
+            meals_per_day: prof.meals_per_day || null,
+            weight_kg: prof.weight_kg || null,
+            height_cm: prof.height_cm || null
+          }).select('id').single().then(({ data, error }) => {
+            if (data && data.id) {
+              localDb.updateProfile({ id: data.id });
+              import('@/lib/db').then(({ syncToSupabaseOnSignup }) => {
+                syncToSupabaseOnSignup(prof, data.id);
+              });
+            }
+            if (error) console.error("Supabase initial user insertion failed:", error);
+          });
+        }
+      });
     }
     
     // Load theme preference

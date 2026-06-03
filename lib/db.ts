@@ -147,6 +147,41 @@ export const localDb = {
     const current = localDb.getProfile();
     const updated = { ...current, ...profile };
     setLocalStorage('fitcore_user_profile', updated);
+
+    // Sync to Supabase in the background
+    if (supabase) {
+      supabase.from('users').upsert({
+        id: updated.id === DEFAULT_USER_ID ? undefined : updated.id,
+        email: updated.email.toLowerCase().trim(),
+        name: updated.name,
+        phone: updated.phone || null,
+        gender: updated.gender || null,
+        dob: updated.dob || null,
+        goal: updated.goal || null,
+        experience: updated.experience || null,
+        equipment: updated.equipment || null,
+        days_per_week: updated.days_per_week || null,
+        diet_type: updated.diet_type || null,
+        diet_goal: updated.diet_goal || null,
+        allergies: updated.allergies || [],
+        meals_per_day: updated.meals_per_day || null,
+        weight_kg: updated.weight_kg || null,
+        height_cm: updated.height_cm || null
+      }, { onConflict: 'email' })
+      .select('id')
+      .single()
+      .then(({ data, error }) => {
+        if (data && data.id) {
+          const reCurrent = localDb.getProfile();
+          if (reCurrent.id !== data.id) {
+            setLocalStorage('fitcore_user_profile', { ...reCurrent, id: data.id });
+            window.dispatchEvent(new Event('fitcore_profile_updated'));
+          }
+        }
+        if (error) console.error("Supabase Profile Sync Failed:", error);
+      });
+    }
+
     return updated;
   },
 
@@ -155,9 +190,10 @@ export const localDb = {
   },
 
   saveWorkoutPlan: (plan: WorkoutDay[], intensity: string): WorkoutPlan => {
+    const profile = localDb.getProfile();
     const newPlan: WorkoutPlan = {
       id: Math.random().toString(36).substr(2, 9),
-      user_id: DEFAULT_USER_ID,
+      user_id: profile.id,
       plan_data: plan,
       completed_exercises: {},
       intensity_level: intensity,
@@ -165,12 +201,30 @@ export const localDb = {
       updated_at: new Date().toISOString()
     };
     setLocalStorage('fitcore_workout_plan', newPlan);
+
+    // Sync to Supabase in the background
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      // Clear previous and insert fresh to handle structure updates easily
+      supabase.from('ai_workout_plans').delete().eq('user_id', profile.id)
+        .then(() => {
+          supabase.from('ai_workout_plans').insert({
+            user_id: profile.id,
+            plan_data: plan,
+            completed_exercises: {},
+            intensity_level: intensity
+          }).then(({ error }) => {
+            if (error) console.error("Supabase Save Workout Sync Failed:", error);
+          });
+        });
+    }
+
     return newPlan;
   },
 
   completeExercise: (exerciseName: string, dateStr: string, isChecked: boolean): WorkoutPlan | null => {
     const plan = localDb.getWorkoutPlan();
     if (!plan) return null;
+    const profile = localDb.getProfile();
     
     if (!plan.completed_exercises) {
       plan.completed_exercises = {};
@@ -191,6 +245,18 @@ export const localDb = {
     
     plan.updated_at = new Date().toISOString();
     setLocalStorage('fitcore_workout_plan', plan);
+
+    // Sync to Supabase in the background
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      supabase.from('ai_workout_plans').update({
+        completed_exercises: plan.completed_exercises,
+        updated_at: new Date().toISOString()
+      }).eq('user_id', profile.id)
+      .then(({ error }) => {
+        if (error) console.error("Supabase Workout Checkbox Sync Failed:", error);
+      });
+    }
+
     return plan;
   },
 
@@ -199,14 +265,29 @@ export const localDb = {
   },
 
   saveDietPlan: (plan: DietDay[]): DietPlan => {
+    const profile = localDb.getProfile();
     const newPlan: DietPlan = {
       id: Math.random().toString(36).substr(2, 9),
-      user_id: DEFAULT_USER_ID,
+      user_id: profile.id,
       plan_data: plan,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
     setLocalStorage('fitcore_diet_plan', newPlan);
+
+    // Sync to Supabase in the background
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      supabase.from('ai_diet_plans').delete().eq('user_id', profile.id)
+        .then(() => {
+          supabase.from('ai_diet_plans').insert({
+            user_id: profile.id,
+            plan_data: plan
+          }).then(({ error }) => {
+            if (error) console.error("Supabase Save Diet Sync Failed:", error);
+          });
+        });
+    }
+
     return newPlan;
   },
 
@@ -218,7 +299,7 @@ export const localDb = {
       const seed: ProgressLog[] = [
         {
           id: '1',
-          user_id: DEFAULT_USER_ID,
+          user_id: profile.id,
           weight_kg: (profile.weight_kg || 72) - 2.5,
           chest_inches: 38,
           waist_inches: 32,
@@ -228,7 +309,7 @@ export const localDb = {
         },
         {
           id: '2',
-          user_id: DEFAULT_USER_ID,
+          user_id: profile.id,
           weight_kg: (profile.weight_kg || 72) - 1.2,
           chest_inches: 38.5,
           waist_inches: 31.8,
@@ -238,7 +319,7 @@ export const localDb = {
         },
         {
           id: '3',
-          user_id: DEFAULT_USER_ID,
+          user_id: profile.id,
           weight_kg: (profile.weight_kg || 72) - 0.5,
           chest_inches: 39,
           waist_inches: 31.5,
@@ -248,7 +329,7 @@ export const localDb = {
         },
         {
           id: '4',
-          user_id: DEFAULT_USER_ID,
+          user_id: profile.id,
           weight_kg: profile.weight_kg || 72,
           chest_inches: 39.2,
           waist_inches: 31.2,
@@ -265,19 +346,33 @@ export const localDb = {
 
   addProgressLog: (log: Omit<ProgressLog, 'id' | 'user_id' | 'created_at'>): ProgressLog => {
     const logs = localDb.getProgressLogs();
+    const profile = localDb.getProfile();
     const newLog: ProgressLog = {
       ...log,
       id: Math.random().toString(36).substr(2, 9),
-      user_id: DEFAULT_USER_ID,
+      user_id: profile.id,
       created_at: new Date().toISOString()
     };
     logs.push(newLog);
-    // Sort by date ascending
     logs.sort((a, b) => new Date(a.recorded_date).getTime() - new Date(b.recorded_date).getTime());
     setLocalStorage('fitcore_progress_logs', logs);
     
-    // Also update weight in user profile
+    // Also update weight in user profile (which will sync to Supabase too!)
     localDb.updateProfile({ weight_kg: log.weight_kg });
+
+    // Sync to Supabase in the background
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      supabase.from('progress_logs').insert({
+        user_id: profile.id,
+        weight_kg: log.weight_kg,
+        chest_inches: log.chest_inches || null,
+        waist_inches: log.waist_inches || null,
+        arms_inches: log.arms_inches || null,
+        recorded_date: log.recorded_date
+      }).then(({ error }) => {
+        if (error) console.error("Supabase Progress Log Sync Failed:", error);
+      });
+    }
     
     return newLog;
   },
@@ -288,14 +383,26 @@ export const localDb = {
 
   addProgressPhoto: (base64OrUrl: string): ProgressPhoto => {
     const photos = localDb.getProgressPhotos();
+    const profile = localDb.getProfile();
     const newPhoto: ProgressPhoto = {
       id: Math.random().toString(36).substr(2, 9),
-      user_id: DEFAULT_USER_ID,
+      user_id: profile.id,
       photo_url: base64OrUrl,
       uploaded_at: new Date().toISOString()
     };
     photos.unshift(newPhoto); // new photos first
     setLocalStorage('fitcore_progress_photos', photos);
+
+    // Sync to Supabase in the background
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      supabase.from('progress_photos').insert({
+        user_id: profile.id,
+        photo_url: base64OrUrl
+      }).then(({ error }) => {
+        if (error) console.error("Supabase Photo Sync Failed:", error);
+      });
+    }
+
     return newPhoto;
   },
 
@@ -319,15 +426,28 @@ export const localDb = {
 
   addChatMessage: (sender: 'user' | 'ai', message: string): ChatMessage => {
     const messages = localDb.getChatMessages();
+    const profile = localDb.getProfile();
     const newMessage: ChatMessage = {
       id: Math.random().toString(36).substr(2, 9),
-      user_id: DEFAULT_USER_ID,
+      user_id: profile.id,
       sender,
       message,
       created_at: new Date().toISOString()
     };
     messages.push(newMessage);
     setLocalStorage('fitcore_chat_messages', messages);
+
+    // Sync to Supabase in the background
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      supabase.from('chat_messages').insert({
+        user_id: profile.id,
+        sender,
+        message
+      }).then(({ error }) => {
+        if (error) console.error("Supabase Chat Message Sync Failed:", error);
+      });
+    }
+
     return newMessage;
   },
   
@@ -335,5 +455,163 @@ export const localDb = {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('fitcore_chat_messages');
     }
+    const profile = localDb.getProfile();
+    if (supabase && profile.id !== DEFAULT_USER_ID) {
+      supabase.from('chat_messages').delete().eq('user_id', profile.id)
+        .then(({ error }) => {
+          if (error) console.error("Supabase Clear Chat Sync Failed:", error);
+        });
+    }
   }
 };
+
+// -------------------------------------------------------------
+// CLOUD SUPABASE ASYNC SYNCERS
+// -------------------------------------------------------------
+
+/**
+ * Downloads all data associated with a user's email from Supabase and populates localStorage cache.
+ * Returns true if the user profile exists on Supabase.
+ */
+export async function syncFromSupabase(email: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const formattedEmail = email.toLowerCase().trim();
+    
+    // 1. Fetch user profile
+    const { data: prof, error: profErr } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', formattedEmail)
+      .single();
+      
+    if (profErr || !prof) return false;
+    
+    const userId = prof.id;
+    setLocalStorage('fitcore_user_profile', prof);
+    
+    // 2. Fetch workout plan
+    const { data: wPlans } = await supabase
+      .from('ai_workout_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1);
+    if (wPlans && wPlans.length > 0) {
+      setLocalStorage('fitcore_workout_plan', wPlans[0]);
+    } else {
+      localStorage.removeItem('fitcore_workout_plan');
+    }
+    
+    // 3. Fetch diet plan
+    const { data: dPlans } = await supabase
+      .from('ai_diet_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .limit(1);
+    if (dPlans && dPlans.length > 0) {
+      setLocalStorage('fitcore_diet_plan', dPlans[0]);
+    } else {
+      localStorage.removeItem('fitcore_diet_plan');
+    }
+    
+    // 4. Fetch progress logs
+    const { data: logs } = await supabase
+      .from('progress_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('recorded_date', { ascending: true });
+    if (logs && logs.length > 0) {
+      setLocalStorage('fitcore_progress_logs', logs);
+    }
+    
+    // 5. Fetch progress photos
+    const { data: photos } = await supabase
+      .from('progress_photos')
+      .select('*')
+      .eq('user_id', userId)
+      .order('uploaded_at', { ascending: false });
+    if (photos && photos.length > 0) {
+      setLocalStorage('fitcore_progress_photos', photos);
+    }
+    
+    // 6. Fetch chat messages
+    const { data: chats } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (chats && chats.length > 0) {
+      setLocalStorage('fitcore_chat_messages', chats);
+    }
+    
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+    return true;
+  } catch (e) {
+    console.error("Error syncing download from Supabase:", e);
+    return false;
+  }
+}
+
+/**
+ * Pushes any existing offline local mock data (from guest session) to Supabase tables on first login/signup.
+ */
+export async function syncToSupabaseOnSignup(profile: UserProfile, supabaseUserId: string) {
+  if (!supabase) return;
+  try {
+    const localWorkout = localDb.getWorkoutPlan();
+    const localDiet = localDb.getDietPlan();
+    
+    // Skip seeding templates if they don't have them generated yet
+    if (localWorkout && localWorkout.plan_data.length > 0) {
+      await supabase.from('ai_workout_plans').delete().eq('user_id', supabaseUserId);
+      await supabase.from('ai_workout_plans').insert({
+        user_id: supabaseUserId,
+        plan_data: localWorkout.plan_data,
+        completed_exercises: localWorkout.completed_exercises || {},
+        intensity_level: localWorkout.intensity_level || 'intermediate'
+      });
+    }
+    
+    if (localDiet && localDiet.plan_data.length > 0) {
+      await supabase.from('ai_diet_plans').delete().eq('user_id', supabaseUserId);
+      await supabase.from('ai_diet_plans').insert({
+        user_id: supabaseUserId,
+        plan_data: localDiet.plan_data
+      });
+    }
+
+    const localLogs = getLocalStorage<ProgressLog[]>('fitcore_progress_logs', []);
+    if (localLogs && localLogs.length > 0) {
+      const logsToInsert = localLogs.map(l => ({
+        user_id: supabaseUserId,
+        weight_kg: l.weight_kg,
+        chest_inches: l.chest_inches || null,
+        waist_inches: l.waist_inches || null,
+        arms_inches: l.arms_inches || null,
+        recorded_date: l.recorded_date
+      }));
+      await supabase.from('progress_logs').insert(logsToInsert);
+    }
+
+    const localPhotos = getLocalStorage<ProgressPhoto[]>('fitcore_progress_photos', []);
+    if (localPhotos && localPhotos.length > 0) {
+      const photosToInsert = localPhotos.map(p => ({
+        user_id: supabaseUserId,
+        photo_url: p.photo_url
+      }));
+      await supabase.from('progress_photos').insert(photosToInsert);
+    }
+
+    const localChats = getLocalStorage<ChatMessage[]>('fitcore_chat_messages', []);
+    if (localChats && localChats.length > 1) { // more than the welcome msg
+      const chatsToInsert = localChats.map(c => ({
+        user_id: supabaseUserId,
+        sender: c.sender,
+        message: c.message
+      }));
+      await supabase.from('chat_messages').insert(chatsToInsert);
+    }
+  } catch (e) {
+    console.error("Error migrating offline data to Supabase:", e);
+  }
+}
