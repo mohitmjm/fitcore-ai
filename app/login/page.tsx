@@ -443,33 +443,7 @@ function LoginContent() {
     }
   };
 
-  // Instant demo account setup (evaluation bypass)
-  const handleInstantDemo = () => {
-    setIsSubmitting(true);
-    setTimeout(() => {
-      localStorage.setItem('fitcore_logged_in', 'true');
-      
-      localDb.updateProfile({
-        name: 'Flex Champion',
-        email: 'demo@fitcore.ai',
-        username: 'flexchampion',
-        goal: 'muscle gain',
-        experience: 'intermediate',
-        equipment: 'gym',
-        days_per_week: 4,
-        weight_kg: 75,
-        height_cm: 180,
-        language: 'english',
-        is_subscribed: true
-      });
-      
-      seedMockData();
-      
-      window.dispatchEvent(new Event('fitcore_profile_updated'));
-      setIsSubmitting(false);
-      router.push('/');
-    }, 500);
-  };
+
 
   const seedMockData = () => {
     const mockWorkout = [
@@ -1042,18 +1016,7 @@ function LoginContent() {
           </div>
         )}
 
-        {/* DEMO BYPASS GATEWAY */}
-        <div className="border-t border-white/5 pt-5 space-y-3.5 text-center">
-          <p className="text-[10px] text-gray-500">Want to test the app features directly?</p>
-          <button
-            onClick={handleInstantDemo}
-            disabled={isSubmitting}
-            className="w-full py-3 bg-white/5 border border-white/10 hover:border-cyan-500/30 rounded-xl text-xs font-bold text-gray-300 hover:text-cyan-400 hover:bg-[#0b0e14]/40 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Sparkles className="h-4 w-4 text-cyan-400" />
-            Try Instant Demo Account
-          </button>
-        </div>
+
       </div>
     </div>
   );
