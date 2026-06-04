@@ -134,6 +134,8 @@ function LoginContent() {
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Incorrect credentials. Please try again.');
+      setLoginId('');
+      setLoginPassword('');
     } finally {
       setIsSubmitting(false);
     }
@@ -222,6 +224,7 @@ function LoginContent() {
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid code.');
+      setOtpPin(Array(6).fill(''));
       pinRefs.current[0]?.focus();
     } finally {
       setIsSubmitting(false);
@@ -260,6 +263,9 @@ function LoginContent() {
       const data = await res.json();
       if (!res.ok && data.error && data.error.includes('taken')) {
         setErrorMsg(data.error);
+        setUsername('');
+        setPassword('');
+        setConfirmPassword('');
       } else {
         setErrorMsg('');
         setName(username);
@@ -376,6 +382,10 @@ function LoginContent() {
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to complete registration.');
+      setUsername('');
+      setPassword('');
+      setConfirmPassword('');
+      setSignUpStep('credentials'); // Go back to credentials step to choose new ones
     } finally {
       setIsSubmitting(false);
     }
