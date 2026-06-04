@@ -12,6 +12,7 @@ export const supabase = isSupabaseConfigured
 export interface UserProfile {
   id: string;
   email: string;
+  username?: string;
   name: string;
   phone?: string;
   gender?: 'male' | 'female' | 'other';
@@ -132,6 +133,7 @@ export const localDb = {
     return getLocalStorage<UserProfile>('fitcore_user_profile', {
       id: DEFAULT_USER_ID,
       email: 'user@fitcore.ai',
+      username: 'flexchampion',
       name: 'Flex Champion',
       gender: 'male',
       dob: '1998-01-01',

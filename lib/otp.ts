@@ -270,3 +270,138 @@ export async function sendOTPEmail(email: string, otp: string): Promise<{ succes
 
   return { success: false, error: 'Email service provider API Key not configured in .env.local' };
 }
+
+// -------------------------------------------------------------
+// CREDENTIALS AUTH DATABASE
+// -------------------------------------------------------------
+
+export interface AppUser {
+  email: string;
+  username: string;
+  password?: string;
+  name: string;
+  goal?: 'weight loss' | 'muscle gain' | 'endurance' | 'flexibility';
+  experience?: 'beginner' | 'intermediate' | 'advanced';
+  equipment?: 'home' | 'gym' | 'none';
+  days_per_week?: number;
+  diet_type?: 'veg' | 'non-veg' | 'vegan';
+  diet_goal?: 'lose fat' | 'gain muscle' | 'maintain';
+  allergies?: string[];
+  meals_per_day?: number;
+  weight_kg?: number;
+  height_cm?: number;
+  language?: 'english' | 'hinglish';
+  is_subscribed?: boolean;
+  wallet_balance?: number;
+  referrals?: string[];
+  whatsapp_enabled?: boolean;
+  sms_enabled?: boolean;
+  email_enabled?: boolean;
+}
+
+interface UserStore {
+  [usernameOrEmail: string]: AppUser;
+}
+
+const USERS_FILE = path.join(STORE_DIR, 'users.json');
+
+function ensureUsersFile() {
+  if (!fs.existsSync(STORE_DIR)) {
+    try {
+      fs.mkdirSync(STORE_DIR, { recursive: true });
+    } catch (e) {}
+  }
+  if (!fs.existsSync(USERS_FILE)) {
+    try {
+      fs.writeFileSync(USERS_FILE, JSON.stringify({}), 'utf-8');
+    } catch (e) {}
+  }
+}
+
+export function readUsers(): UserStore {
+  try {
+    ensureUsersFile();
+    if (fs.existsSync(USERS_FILE)) {
+      const data = fs.readFileSync(USERS_FILE, 'utf-8');
+      return JSON.parse(data || '{}');
+    }
+  } catch (e) {
+    console.error("Failed to read Users store", e);
+  }
+  return {};
+}
+
+export function writeUsers(store: UserStore) {
+  try {
+    ensureUsersFile();
+    fs.writeFileSync(USERS_FILE, JSON.stringify(store, null, 2), 'utf-8');
+  } catch (e) {
+    console.error("Failed to write Users store", e);
+  }
+}
+
+export function isEmailRegistered(email: string): boolean {
+  const users = readUsers();
+  const lowerEmail = email.toLowerCase().trim();
+  return Object.values(users).some(u => u.email.toLowerCase().trim() === lowerEmail);
+}
+
+export function isUsernameRegistered(username: string): boolean {
+  const users = readUsers();
+  const lowerUser = username.toLowerCase().trim();
+  return users[lowerUser] !== undefined;
+}
+
+export function registerUser(email: string, username: string, password: string): AppUser {
+  const users = readUsers();
+  const lowerEmail = email.toLowerCase().trim();
+  const lowerUsername = username.toLowerCase().trim();
+  
+  const newUser: AppUser = {
+    email: lowerEmail,
+    username: lowerUsername,
+    password: password, // plaintext for local mock database
+    name: username,
+    is_subscribed: false,
+    wallet_balance: 100,
+    referrals: [],
+    whatsapp_enabled: true,
+    sms_enabled: false,
+    email_enabled: true,
+    goal: 'muscle gain',
+    experience: 'intermediate',
+    equipment: 'gym',
+    days_per_week: 4,
+    diet_type: 'non-veg',
+    diet_goal: 'gain muscle',
+    meals_per_day: 4,
+    weight_kg: 72,
+    height_cm: 178,
+    language: 'english'
+  };
+
+  users[lowerUsername] = newUser;
+  writeUsers(users);
+  return newUser;
+}
+
+export function authenticateUser(loginId: string, password: string): AppUser | null {
+  const users = readUsers();
+  const cleanId = loginId.toLowerCase().trim();
+  
+  // Find by username first
+  let user = users[cleanId];
+  
+  // If not found, find by email
+  if (!user) {
+    user = Object.values(users).find(u => u.email.toLowerCase().trim() === cleanId) as AppUser;
+  }
+  
+  if (user && user.password === password) {
+    // Return user profile without password
+    const { password: _, ...safeUser } = user;
+    return safeUser;
+  }
+  
+  return null;
+}

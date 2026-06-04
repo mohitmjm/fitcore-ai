@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateOTP, sendOTPEmail } from '@/lib/otp';
+import { generateOTP, sendOTPEmail, isEmailRegistered } from '@/lib/otp';
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +13,14 @@ export async function POST(request: Request) {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
+    
+    // Check if email already registered
+    if (isEmailRegistered(trimmedEmail)) {
+      return NextResponse.json(
+        { error: 'This email is already registered. Please Sign In using your username/email and password.' },
+        { status: 400 }
+      );
+    }
     
     // Generate code
     const otp = generateOTP(trimmedEmail);
