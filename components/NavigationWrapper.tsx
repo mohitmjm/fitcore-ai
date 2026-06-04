@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -17,7 +17,13 @@ import {
   Globe,
   Sun,
   Moon,
-  LogOut
+  LogOut,
+  CreditCard,
+  QrCode,
+  Check,
+  Lock,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { localDb, UserProfile, isSupabaseConfigured, syncFromSupabase, supabase } from '@/lib/db';
 
@@ -45,6 +51,18 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // Subscription states
+  const [payTab, setPayTab] = useState<'card' | 'upi'>('card');
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [upiId, setUpiId] = useState('');
+  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success'>('form');
+  const [paymentError, setPaymentError] = useState('');
+
+  const syncedRef = useRef(false);
+
   useEffect(() => {
     // Check if user is logged in
     const logged = localStorage.getItem('fitcore_logged_in') === 'true';
@@ -63,12 +81,13 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     }
 
     // Sync with Supabase on session start
-    if (logged && isSupabaseConfigured && currentProfile?.email) {
+    if (logged && isSupabaseConfigured && currentProfile?.email && !syncedRef.current) {
+      syncedRef.current = true;
       syncFromSupabase(currentProfile.email).then((hasCloudProfile) => {
         if (!hasCloudProfile && supabase) {
           // If profile doesn't exist on Supabase, let's create it and migrate local storage data!
           const prof = localDb.getProfile();
-          supabase.from('users').insert({
+          supabase.from('users').upsert({
             email: prof.email.toLowerCase().trim(),
             name: prof.name,
             gender: prof.gender || null,
@@ -82,15 +101,23 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
             allergies: prof.allergies || [],
             meals_per_day: prof.meals_per_day || null,
             weight_kg: prof.weight_kg || null,
-            height_cm: prof.height_cm || null
-          }).select('id').single().then(({ data, error }) => {
+            height_cm: prof.height_cm || null,
+            is_subscribed: prof.is_subscribed ?? false,
+            wallet_balance: prof.wallet_balance ?? 100,
+            referrals: prof.referrals ?? [],
+            whatsapp_enabled: prof.whatsapp_enabled ?? true,
+            sms_enabled: prof.sms_enabled ?? false,
+            email_enabled: prof.email_enabled ?? true
+          }, { onConflict: 'email' }).select('id').single().then(({ data, error }) => {
             if (data && data.id) {
               localDb.updateProfile({ id: data.id });
               import('@/lib/db').then(({ syncToSupabaseOnSignup }) => {
                 syncToSupabaseOnSignup(prof, data.id);
               });
             }
-            if (error) console.error("Supabase initial user insertion failed:", error);
+            if (error) {
+              console.warn("Supabase initial user insertion failed (falling back to offline mode):", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
+            }
           });
         }
       });
@@ -181,6 +208,289 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
             <Globe className="h-4 w-4 text-cyan-400" />
             <span>{language === 'english' ? 'English' : 'Hinglish'}</span>
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  const handleCardNumberChange = (val: string) => {
+    const clean = val.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const formatted = clean.match(/.{1,4}/g)?.join(' ') || clean;
+    setCardNumber(formatted.substring(0, 19));
+  };
+
+  const handleExpiryChange = (val: string) => {
+    const clean = val.replace(/\//g, '').replace(/[^0-9]/gi, '');
+    let formatted = clean;
+    if (clean.length > 2) {
+      formatted = `${clean.substring(0, 2)}/${clean.substring(2, 4)}`;
+    }
+    setCardExpiry(formatted.substring(0, 5));
+  };
+
+  const handlePaymentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaymentError('');
+    
+    if (payTab === 'card') {
+      if (cardNumber.replace(/\s/g, '').length !== 16) {
+        setPaymentError('Invalid Card Number. Must be 16 digits.');
+        return;
+      }
+      if (cardExpiry.length !== 5) {
+        setPaymentError('Invalid Expiry Date (MM/YY).');
+        return;
+      }
+      if (cardCvv.length !== 3) {
+        setPaymentError('Invalid CVV (3 digits).');
+        return;
+      }
+    } else {
+      if (!upiId || !upiId.includes('@')) {
+        setPaymentError('Please enter a valid UPI ID (e.g. user@upi).');
+        return;
+      }
+    }
+    
+    setPaymentStep('processing');
+    
+    setTimeout(() => {
+      setPaymentStep('success');
+      setTimeout(() => {
+        localDb.updateProfile({ is_subscribed: true });
+        window.dispatchEvent(new Event('fitcore_profile_updated'));
+        setPaymentStep('form');
+      }, 1500);
+    }, 2500);
+  };
+
+  const handleUpiQrVerify = () => {
+    setPaymentError('');
+    setPaymentStep('processing');
+    setTimeout(() => {
+      setPaymentStep('success');
+      setTimeout(() => {
+        localDb.updateProfile({ is_subscribed: true });
+        window.dispatchEvent(new Event('fitcore_profile_updated'));
+        setPaymentStep('form');
+      }, 1500);
+    }, 2500);
+  };
+
+  if (isLoggedIn && !profile?.is_subscribed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[var(--background)]">
+        <div className="absolute inset-0 -top-40 bg-gradient-radial-neon opacity-30 pointer-events-none -z-10" />
+        <div className="absolute -bottom-40 -left-40 h-80 w-80 bg-purple-500/10 blur-3xl rounded-full pointer-events-none -z-10" />
+        
+        <div className="w-full max-w-lg glass-panel rounded-3xl border border-white/10 p-6 md:p-8 space-y-6 shadow-2xl relative">
+          <div className="absolute -top-10 -right-10 h-28 w-28 bg-cyan-500/10 blur-2xl rounded-full" />
+          
+          <div className="text-center space-y-2">
+            <div className="inline-flex h-12 w-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-purple-500 items-center justify-center shadow-lg animate-bounce">
+              <Zap className="h-6 w-6 text-white" />
+            </div>
+            <h2 className="text-2xl font-black tracking-tight text-white mt-3 flex items-center justify-center gap-2">
+              FITCORE <span className="text-cyan-400">AI</span>
+            </h2>
+            <p className="text-xs text-gray-400 text-center">Active Subscription Required</p>
+          </div>
+
+          {paymentStep === 'processing' && (
+            <div className="py-12 flex flex-col items-center justify-center space-y-4 animate-[fadeIn_0.3s_ease]">
+              <Loader2 className="h-10 w-10 text-cyan-400 animate-spin" />
+              <div className="text-center space-y-1">
+                <p className="text-sm font-bold text-white">Processing Secure Payment...</p>
+                <p className="text-[11px] text-gray-500">Verifying transaction with gateway, please wait.</p>
+              </div>
+            </div>
+          )}
+
+          {paymentStep === 'success' && (
+            <div className="py-12 flex flex-col items-center justify-center space-y-4 animate-[scaleIn_0.3s_ease]">
+              <div className="h-14 w-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center">
+                <Check className="h-8 w-8 text-emerald-400" />
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-base font-bold text-emerald-400">Payment Successful!</p>
+                <p className="text-[11px] text-gray-400">Activating your AI Personal Trainer dashboard...</p>
+              </div>
+            </div>
+          )}
+
+          {paymentStep === 'form' && (
+            <div className="space-y-6">
+              {/* Product Info Block */}
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/8 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-300 font-bold">FitCore AI All-Access Pass</span>
+                  <span className="text-cyan-400 font-black">₹99 / month</span>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-normal text-left">
+                  Unlock unlimited custom workout generators, 7-day Indian meal plans, body metrics progress logs, and your personal Llama 3.2 AI Fitness Coach chatbot.
+                </p>
+              </div>
+
+              {paymentError && (
+                <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+                  <AlertCircle className="h-4.5 w-4.5 shrink-0" />
+                  <span>{paymentError}</span>
+                </div>
+              )}
+
+              {/* TABS */}
+              <div className="flex bg-[#0b0e14]/60 border border-white/5 p-1 rounded-xl">
+                <button
+                  onClick={() => setPayTab('card')}
+                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                    payTab === 'card' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Card Payment
+                </button>
+                <button
+                  onClick={() => setPayTab('upi')}
+                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                    payTab === 'upi' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <QrCode className="h-3.5 w-3.5" />
+                  UPI / QR
+                </button>
+              </div>
+
+              {payTab === 'card' ? (
+                <form onSubmit={handlePaymentSubmit} className="space-y-4 text-left">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cardholder Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                      placeholder="e.g. Vikram Singh"
+                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Card Number</label>
+                    <input
+                      type="text"
+                      required
+                      value={cardNumber}
+                      onChange={(e) => handleCardNumberChange(e.target.value)}
+                      placeholder="XXXX XXXX XXXX XXXX"
+                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none font-mono tracking-widest"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expiry (MM/YY)</label>
+                      <input
+                        type="text"
+                        required
+                        value={cardExpiry}
+                        onChange={(e) => handleExpiryChange(e.target.value)}
+                        placeholder="MM/YY"
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">CVV (3 Digits)</label>
+                      <input
+                        type="password"
+                        required
+                        maxLength={3}
+                        value={cardCvv}
+                        onChange={(e) => setCardCvv(e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="***"
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.01] flex items-center justify-center gap-1.5"
+                  >
+                    <Lock className="h-4 w-4" />
+                    Pay ₹99 Securely
+                  </button>
+                </form>
+              ) : (
+                <div className="space-y-5 text-center">
+                  <p className="text-[11px] text-gray-400">Scan this mock UPI QR code to complete the verification</p>
+                  
+                  <div className="relative inline-block">
+                    <svg width="150" height="150" viewBox="0 0 100 100" className="mx-auto bg-white p-2 rounded-2xl border border-white/10 shadow-lg">
+                      <rect x="5" y="5" width="25" height="25" fill="#0b0e14" />
+                      <rect x="10" y="10" width="15" height="15" fill="white" />
+                      <rect x="13" y="13" width="9" height="9" fill="#0b0e14" />
+
+                      <rect x="70" y="5" width="25" height="25" fill="#0b0e14" />
+                      <rect x="75" y="10" width="15" height="15" fill="white" />
+                      <rect x="78" y="13" width="9" height="9" fill="#0b0e14" />
+
+                      <rect x="5" y="70" width="25" height="25" fill="#0b0e14" />
+                      <rect x="10" y="75" width="15" height="15" fill="white" />
+                      <rect x="13" y="78" width="9" height="9" fill="#0b0e14" />
+
+                      <rect x="40" y="10" width="5" height="10" fill="#0b0e14" />
+                      <rect x="50" y="5" width="10" height="5" fill="#0b0e14" />
+                      <rect x="45" y="20" width="15" height="5" fill="#0b0e14" />
+                      
+                      <rect x="10" y="40" width="10" height="5" fill="#0b0e14" />
+                      <rect x="5" y="50" width="5" height="10" fill="#0b0e14" />
+                      <rect x="20" y="45" width="5" height="15" fill="#0b0e14" />
+
+                      <rect x="40" y="40" width="20" height="20" fill="#6366f1" opacity="0.8" />
+                      <rect x="45" y="45" width="10" height="10" fill="white" />
+                      
+                      <rect x="70" y="40" width="10" height="10" fill="#0b0e14" />
+                      <rect x="85" y="45" width="5" height="15" fill="#0b0e14" />
+                      <rect x="80" y="35" width="15" height="5" fill="#0b0e14" />
+
+                      <rect x="35" y="70" width="15" height="5" fill="#0b0e14" />
+                      <rect x="40" y="80" width="5" height="10" fill="#0b0e14" />
+                      <rect x="50" y="75" width="15" height="5" fill="#0b0e14" />
+
+                      <rect x="70" y="70" width="10" height="5" fill="#0b0e14" />
+                      <rect x="85" y="75" width="10" height="10" fill="#0b0e14" />
+                      <rect x="75" y="85" width="5" height="10" fill="#0b0e14" />
+                    </svg>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Merchant UPI ID</span>
+                      <span className="text-xs font-mono text-white font-bold select-all bg-[#0b0e14] border border-white/5 px-3 py-1.5 rounded-lg inline-block">fitcore@ybl</span>
+                    </div>
+
+                    <button
+                      onClick={handleUpiQrVerify}
+                      className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                    >
+                      Simulate QR Payment Success
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* LOGOUT */}
+              <div className="border-t border-white/5 pt-4 text-center">
+                <button
+                  onClick={handleLogout}
+                  className="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Cancel & Log Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

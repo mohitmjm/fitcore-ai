@@ -138,7 +138,8 @@ function LoginContent() {
       
       localDb.updateProfile({
         email: email.trim(),
-        name: profile.name === 'Flex Champion' ? email.split('@')[0] : profile.name
+        name: profile.name === 'Flex Champion' ? email.split('@')[0] : profile.name,
+        is_subscribed: false
       });
 
       // Seed default plans if they don't exist
@@ -248,7 +249,8 @@ function LoginContent() {
         days_per_week: 4,
         weight_kg: 75,
         height_cm: 180,
-        language: 'english'
+        language: 'english',
+        is_subscribed: true
       });
       
       seedMockData();

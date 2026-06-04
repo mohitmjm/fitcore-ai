@@ -10,7 +10,9 @@ import {
   RotateCw,
   TrendingUp,
   BrainCircuit,
-  MessageCircleQuestion
+  MessageCircleQuestion,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { localDb, ChatMessage } from '@/lib/db';
 
@@ -26,6 +28,7 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     setMessages(localDb.getChatMessages());
@@ -35,6 +38,70 @@ export default function ChatPage() {
     // Scroll to bottom on updates
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    // Cancel speaking on unmount
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const handleToggleSpeech = (msg: ChatMessage) => {
+    if (typeof window === 'undefined') return;
+
+    const synth = window.speechSynthesis;
+    if (!synth) {
+      alert("Text-to-speech is not supported in this browser.");
+      return;
+    }
+
+    if (speakingMessageId === msg.id) {
+      synth.cancel();
+      setSpeakingMessageId(null);
+      return;
+    }
+
+    synth.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(msg.message);
+    
+    // Choose appropriate voice/accent
+    const profile = localDb.getProfile();
+    const isHinglish = profile.language === 'hinglish';
+    const voices = synth.getVoices();
+
+    if (isHinglish) {
+      // Look for Hindi or Indian English accents
+      const inVoice = voices.find(v => v.lang.startsWith('hi-IN') || v.lang.startsWith('en-IN'));
+      if (inVoice) {
+        utterance.voice = inVoice;
+      }
+      utterance.lang = 'hi-IN';
+    } else {
+      const usVoice = voices.find(v => v.lang.startsWith('en-US'));
+      if (usVoice) {
+        utterance.voice = usVoice;
+      }
+      utterance.lang = 'en-US';
+    }
+
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => {
+      setSpeakingMessageId(null);
+    };
+
+    utterance.onerror = (e) => {
+      console.error("TTS error:", e);
+      setSpeakingMessageId(null);
+    };
+
+    setSpeakingMessageId(msg.id);
+    synth.speak(utterance);
+  };
 
   const handleSendMessage = async (text: string) => {
     if (!text.trim() || isTyping) return;
@@ -136,12 +203,31 @@ export default function ChatPage() {
               </div>
 
               {/* Message Bubble */}
-              <div className={`rounded-2xl p-4 text-sm leading-relaxed border ${
+              <div className={`rounded-2xl p-4 text-sm leading-relaxed border relative group transition-all duration-300 ${
                 isAI 
-                  ? 'glass-panel border-white/5 text-gray-200' 
+                  ? `glass-panel border-white/5 text-gray-200 ${speakingMessageId === msg.id ? 'ring-1 ring-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.15)] bg-cyan-950/10' : ''}` 
                   : 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border-cyan-500/20 text-cyan-200'
               }`}>
-                <p className="whitespace-pre-line">{msg.message}</p>
+                <div className="flex justify-between items-start gap-4">
+                  <p className="whitespace-pre-line flex-1 text-left">{msg.message}</p>
+                  {isAI && (
+                    <button
+                      onClick={() => handleToggleSpeech(msg)}
+                      className={`p-1.5 rounded-lg border transition-all shrink-0 hover:scale-105 ${
+                        speakingMessageId === msg.id
+                          ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                          : 'bg-white/5 border-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      }`}
+                      title={speakingMessageId === msg.id ? "Stop Voice Playback" : "Speak Message"}
+                    >
+                      {speakingMessageId === msg.id ? (
+                        <VolumeX className="h-3.5 w-3.5 animate-pulse" />
+                      ) : (
+                        <Volume2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
+                </div>
                 <span className="text-[9px] text-gray-500 block text-right mt-1.5 font-medium">
                   {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>

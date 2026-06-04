@@ -12,7 +12,13 @@ import {
   Info,
   Check,
   AlertTriangle,
-  RotateCw
+  RotateCw,
+  Zap,
+  Wallet,
+  Bell,
+  Plus,
+  Mail,
+  MessageSquare
 } from 'lucide-react';
 import { localDb, UserProfile } from '@/lib/db';
 
@@ -39,6 +45,14 @@ export default function ProfilePage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Wallet & alerts states
+  const [walletBalance, setWalletBalance] = useState(100);
+  const [referrals, setReferrals] = useState<string[]>([]);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [activeNotification, setActiveNotification] = useState<{ title: string; text: string; type: 'whatsapp' | 'sms' | 'email' } | null>(null);
+
   const handleLogout = () => {
     localStorage.removeItem('fitcore_logged_in');
     window.dispatchEvent(new Event('fitcore_profile_updated'));
@@ -63,7 +77,68 @@ export default function ProfilePage() {
     setMealsPerDay(data.meals_per_day || 4);
     setAllergiesInput(data.allergies?.join(', ') || '');
     setLanguage(data.language || 'english');
+    setWalletBalance(data.wallet_balance ?? 100);
+    setReferrals(data.referrals ?? []);
+    setWhatsappEnabled(data.whatsapp_enabled ?? true);
+    setSmsEnabled(data.sms_enabled ?? false);
+    setEmailEnabled(data.email_enabled ?? true);
   }, []);
+
+  const handleSimulateReferral = () => {
+    const randomNames = ["Amit Patel", "Rohan Das", "Priya Sen", "Neha Sharma", "Vikram Singh"];
+    const nameStr = randomNames[Math.floor(Math.random() * randomNames.length)];
+    const mockRef = `${nameStr} joined (Credits: +₹100)`;
+    
+    const newRefs = [...referrals, mockRef];
+    const newBal = walletBalance + 100;
+    
+    setReferrals(newRefs);
+    setWalletBalance(newBal);
+    
+    localDb.updateProfile({ referrals: newRefs, wallet_balance: newBal });
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+  };
+
+  const handleRedeemCredits = () => {
+    if (walletBalance < 100) {
+      alert("You need at least ₹100 inside your digital wallet to redeem balance.");
+      return;
+    }
+    
+    const newBal = walletBalance - 100;
+    setWalletBalance(newBal);
+    
+    localDb.updateProfile({ wallet_balance: newBal });
+    window.dispatchEvent(new Event('fitcore_profile_updated'));
+    
+    alert("Redemption Successful! ₹100 balance applied to extend your subscription renewal.");
+  };
+
+  const handleSendTestNotification = () => {
+    let title = "WhatsApp Notification";
+    let text = "WhatsApp reminder text";
+    let type: 'whatsapp' | 'sms' | 'email' = 'whatsapp';
+    
+    if (whatsappEnabled) {
+      title = "💬 WhatsApp Reminder";
+      text = `Hi ${name || 'Champion'}, it is time for your custom ${goal} workout session! Put on your gear and keep your consistency streak active.`;
+      type = 'whatsapp';
+    } else if (smsEnabled) {
+      title = "📱 SMS Smart Alert";
+      text = `FitCore AI Notification: Drink 500ml of water now. Keep your hydration and macro target of ${dietGoal} on track.`;
+      type = 'sms';
+    } else {
+      title = "✉️ Email Progress Report";
+      text = `Monthly Fitness Report for ${name || 'Champion'}: Your body weight scale tracker is logged at ${weightKg} kg. You are in the active zone!`;
+      type = 'email';
+    }
+    
+    setActiveNotification({ title, text, type });
+    
+    setTimeout(() => {
+      setActiveNotification(null);
+    }, 4500);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +164,12 @@ export default function ProfilePage() {
       height_cm: Number(heightCm),
       meals_per_day: Number(mealsPerDay),
       allergies,
-      language
+      language,
+      wallet_balance: walletBalance,
+      referrals,
+      whatsapp_enabled: whatsappEnabled,
+      sms_enabled: smsEnabled,
+      email_enabled: emailEnabled
     };
 
     // Update profile
@@ -445,6 +525,205 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* DIGITAL WALLET & REFERRAL CREDITS */}
+        <div className="glass-panel rounded-2xl p-6 md:p-8 space-y-6">
+          <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.06)] pb-4">
+            <Wallet className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-xl font-semibold text-white">Digital Wallet & Referrals</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Wallet Balance Card */}
+            <div className="bg-[#0b0e14]/60 border border-[rgba(255,255,255,0.06)] rounded-xl p-5 flex flex-col justify-between space-y-4 text-left">
+              <div>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Balance</span>
+                <div className="text-3xl font-extrabold text-white mt-1.5 flex items-baseline gap-1">
+                  ₹{walletBalance}
+                  <span className="text-[10px] font-medium text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">D2C Coins</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Earn ₹100 for every gym buddy who subscribes using your referral link.</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRedeemCredits}
+                className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold text-xs rounded-lg transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.01]"
+              >
+                Redeem ₹100 (Extend Plan)
+              </button>
+            </div>
+
+            {/* Refer & Earn Simulator */}
+            <div className="bg-[#0b0e14]/60 border border-[rgba(255,255,255,0.06)] rounded-xl p-5 flex flex-col justify-between space-y-4 md:col-span-2 text-left">
+              <div className="space-y-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Referral Program Simulator</span>
+                <p className="text-xs text-gray-400">
+                  Share the love of premium coaching! FitCore AI is direct-to-consumer. Test the flow by simulating a new user signing up via your referral code below.
+                </p>
+                
+                {/* Referrals list log */}
+                <div className="mt-3 space-y-2 max-h-[90px] overflow-y-auto pr-1">
+                  {referrals.length === 0 ? (
+                    <div className="text-xs text-gray-600 italic py-2">No referrals logged yet. Click simulate to test!</div>
+                  ) : (
+                    referrals.map((ref, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs bg-white/5 border border-white/5 px-3 py-1.5 rounded-lg text-gray-300">
+                        <span>{ref}</span>
+                        <span className="text-emerald-400 font-bold font-mono">+₹100</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSimulateReferral}
+                className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Simulate Successful Referral Signup
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* SMART ALERTS CONFIGURATION */}
+        <div className="glass-panel rounded-2xl p-6 md:p-8 space-y-6">
+          <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.06)] pb-4">
+            <Bell className="h-5 w-5 text-purple-400" />
+            <h2 className="text-xl font-semibold text-white">Smart Alerts & Notification Preferences</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-4 text-left">
+              <p className="text-xs text-gray-400">
+                Configure your preferred notifications for workout reminders, custom macro targets, and weekly summaries. FitCore AI sends offline alerts through simulated APIs.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* WhatsApp Toggle */}
+                <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
+                  whatsappEnabled 
+                    ? 'bg-emerald-500/5 border-emerald-500/30 text-white' 
+                    : 'bg-[#0b0e14] border-[rgba(255,255,255,0.08)] text-gray-400'
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className={`h-4 w-4 ${whatsappEnabled ? 'text-emerald-400' : ''}`} />
+                    <span className="text-xs font-semibold">WhatsApp</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={whatsappEnabled} 
+                    onChange={(e) => setWhatsappEnabled(e.target.checked)} 
+                    className="sr-only"
+                  />
+                  <div className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${whatsappEnabled ? 'bg-emerald-500' : 'bg-gray-700'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ease-in-out ${whatsappEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </label>
+
+                {/* SMS Toggle */}
+                <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
+                  smsEnabled 
+                    ? 'bg-purple-500/5 border-purple-500/30 text-white' 
+                    : 'bg-[#0b0e14] border-[rgba(255,255,255,0.08)] text-gray-400'
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    <Bell className={`h-4 w-4 ${smsEnabled ? 'text-purple-400' : ''}`} />
+                    <span className="text-xs font-semibold">SMS Alerts</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={smsEnabled} 
+                    onChange={(e) => setSmsEnabled(e.target.checked)} 
+                    className="sr-only"
+                  />
+                  <div className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${smsEnabled ? 'bg-purple-500' : 'bg-gray-700'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ease-in-out ${smsEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </label>
+
+                {/* Email Toggle */}
+                <label className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
+                  emailEnabled 
+                    ? 'bg-cyan-500/5 border-cyan-500/30 text-white' 
+                    : 'bg-[#0b0e14] border-[rgba(255,255,255,0.08)] text-gray-400'
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    <Mail className={`h-4 w-4 ${emailEnabled ? 'text-cyan-400' : ''}`} />
+                    <span className="text-xs font-semibold">Email Digest</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={emailEnabled} 
+                    onChange={(e) => setEmailEnabled(e.target.checked)} 
+                    className="sr-only"
+                  />
+                  <div className={`w-8 h-4 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${emailEnabled ? 'bg-cyan-500' : 'bg-gray-700'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white transition-transform duration-200 ease-in-out ${emailEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Test Simulator Button Box */}
+            <div className="bg-[#0b0e14]/60 border border-[rgba(255,255,255,0.06)] rounded-xl p-5 flex flex-col justify-between space-y-4 text-left">
+              <div>
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Simulator Dashboard</span>
+                <p className="text-[11px] text-gray-500 mt-2">Trigger a mock alert directly to your current session to inspect formatting and messaging copy.</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSendTestNotification}
+                className="w-full py-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold text-xs rounded-lg transition-all shadow-md shadow-purple-500/10 hover:scale-[1.01]"
+              >
+                Send Test Notification Alert
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* SUBSCRIPTION STATUS & MANAGEMENT */}
+        <div className="glass-panel rounded-2xl p-6 md:p-8 space-y-6 border border-white/5">
+          <div className="flex items-center gap-3 border-b border-[rgba(255,255,255,0.06)] pb-4">
+            <Zap className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-xl font-semibold text-white">Subscription Management</h2>
+          </div>
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 uppercase font-semibold">Current Plan:</span>
+                <span className="text-xs bg-cyan-500/10 border border-cyan-400/20 text-cyan-400 font-bold px-2 py-0.5 rounded-full">FitCore AI All-Access Pass</span>
+              </div>
+              <p className="text-xs text-gray-400 leading-normal">
+                You are currently subscribed. Access to AI workouts, diets, analytics, and coach chat is active.
+              </p>
+            </div>
+
+            <div className="shrink-0 flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                Active Subscription
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Are you sure you want to cancel your subscription? You will be locked out of the dashboard features immediately.")) {
+                    localDb.updateProfile({ is_subscribed: false });
+                    window.dispatchEvent(new Event('fitcore_profile_updated'));
+                  }
+                }}
+                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-semibold text-xs rounded-xl transition-all"
+              >
+                Cancel Subscription
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* STATUS MESSAGE & GENERATING PANEL */}
         {statusMessage && (
           <div className={`p-4 rounded-xl border flex gap-3 items-center ${
@@ -495,11 +774,31 @@ export default function ProfilePage() {
       
       <div className="p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 text-yellow-500 flex items-start gap-3">
         <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
-        <div className="text-xs space-y-1">
+        <div className="text-xs space-y-1 text-left">
           <span className="font-semibold block">Hugging Face API Connection Note:</span>
           <span>Ensure your Hugging Face API key is configured in your environment variables (`HUGGINGFACE_API_KEY` or `HF_TOKEN`). If the API key is missing or the request times out, FitCore AI will activate an offline mock plan builder to preserve functionality.</span>
         </div>
       </div>
+
+      {/* FLOATING TOASTER NOTIFICATION SIMULATOR */}
+      {activeNotification && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-[#0b0e14]/90 border border-white/10 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.6)] p-4 flex gap-3.5 animate-slide-in backdrop-blur-md">
+          <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-lg ${
+            activeNotification.type === 'whatsapp' 
+              ? 'bg-emerald-500/20 text-emerald-400' 
+              : activeNotification.type === 'sms'
+              ? 'bg-purple-500/20 text-purple-400'
+              : 'bg-cyan-500/20 text-cyan-400'
+          }`}>
+            {activeNotification.type === 'whatsapp' ? '💬' : activeNotification.type === 'sms' ? '📱' : '✉️'}
+          </div>
+          <div className="space-y-1 select-none text-left">
+            <h4 className="text-xs font-bold text-white tracking-wide">{activeNotification.title}</h4>
+            <p className="text-xs text-gray-300 leading-normal">{activeNotification.text}</p>
+            <span className="text-[9px] text-gray-500 font-semibold uppercase block pt-1">Simulated push alert</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

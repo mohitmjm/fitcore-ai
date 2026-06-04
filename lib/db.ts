@@ -28,6 +28,12 @@ export interface UserProfile {
   height_cm?: number;
   language?: 'english' | 'hinglish';
   created_at?: string;
+  is_subscribed?: boolean;
+  wallet_balance?: number;
+  referrals?: string[];
+  whatsapp_enabled?: boolean;
+  sms_enabled?: boolean;
+  email_enabled?: boolean;
 }
 
 export interface WorkoutExercise {
@@ -139,7 +145,13 @@ export const localDb = {
       meals_per_day: 4,
       weight_kg: 72,
       height_cm: 178,
-      language: 'english'
+      language: 'english',
+      is_subscribed: true,
+      wallet_balance: 100,
+      referrals: [],
+      whatsapp_enabled: true,
+      sms_enabled: false,
+      email_enabled: true
     });
   },
 
@@ -166,7 +178,13 @@ export const localDb = {
         allergies: updated.allergies || [],
         meals_per_day: updated.meals_per_day || null,
         weight_kg: updated.weight_kg || null,
-        height_cm: updated.height_cm || null
+        height_cm: updated.height_cm || null,
+        is_subscribed: updated.is_subscribed ?? false,
+        wallet_balance: updated.wallet_balance ?? 100,
+        referrals: updated.referrals ?? [],
+        whatsapp_enabled: updated.whatsapp_enabled ?? true,
+        sms_enabled: updated.sms_enabled ?? false,
+        email_enabled: updated.email_enabled ?? true
       }, { onConflict: 'email' })
       .select('id')
       .single()
@@ -178,7 +196,9 @@ export const localDb = {
             window.dispatchEvent(new Event('fitcore_profile_updated'));
           }
         }
-        if (error) console.error("Supabase Profile Sync Failed:", error);
+        if (error) {
+          console.warn("Supabase Profile Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
+        }
       });
     }
 
@@ -213,7 +233,7 @@ export const localDb = {
             completed_exercises: {},
             intensity_level: intensity
           }).then(({ error }) => {
-            if (error) console.error("Supabase Save Workout Sync Failed:", error);
+            if (error) console.warn("Supabase Save Workout Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
           });
         });
     }
@@ -253,7 +273,7 @@ export const localDb = {
         updated_at: new Date().toISOString()
       }).eq('user_id', profile.id)
       .then(({ error }) => {
-        if (error) console.error("Supabase Workout Checkbox Sync Failed:", error);
+        if (error) console.warn("Supabase Workout Checkbox Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
       });
     }
 
@@ -283,7 +303,7 @@ export const localDb = {
             user_id: profile.id,
             plan_data: plan
           }).then(({ error }) => {
-            if (error) console.error("Supabase Save Diet Sync Failed:", error);
+            if (error) console.warn("Supabase Save Diet Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
           });
         });
     }
@@ -370,7 +390,7 @@ export const localDb = {
         arms_inches: log.arms_inches || null,
         recorded_date: log.recorded_date
       }).then(({ error }) => {
-        if (error) console.error("Supabase Progress Log Sync Failed:", error);
+        if (error) console.warn("Supabase Progress Log Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
       });
     }
     
@@ -399,7 +419,7 @@ export const localDb = {
         user_id: profile.id,
         photo_url: base64OrUrl
       }).then(({ error }) => {
-        if (error) console.error("Supabase Photo Sync Failed:", error);
+        if (error) console.warn("Supabase Photo Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
       });
     }
 
@@ -448,7 +468,7 @@ export const localDb = {
         sender,
         message
       }).then(({ error }) => {
-        if (error) console.error("Supabase Chat Message Sync Failed:", error);
+        if (error) console.warn("Supabase Chat Message Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
       });
     }
 
@@ -463,7 +483,7 @@ export const localDb = {
     if (supabase && profile.id !== DEFAULT_USER_ID) {
       supabase.from('chat_messages').delete().eq('user_id', profile.id)
         .then(({ error }) => {
-          if (error) console.error("Supabase Clear Chat Sync Failed:", error);
+          if (error) console.warn("Supabase Clear Chat Sync Failed:", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
         });
     }
   }
@@ -550,8 +570,8 @@ export async function syncFromSupabase(email: string): Promise<boolean> {
     
     window.dispatchEvent(new Event('fitcore_profile_updated'));
     return true;
-  } catch (e) {
-    console.error("Error syncing download from Supabase:", e);
+  } catch (e: any) {
+    console.warn("Error syncing download from Supabase:", e?.message || e);
     return false;
   }
 }
@@ -615,7 +635,7 @@ export async function syncToSupabaseOnSignup(profile: UserProfile, supabaseUserI
       }));
       await supabase.from('chat_messages').insert(chatsToInsert);
     }
-  } catch (e) {
-    console.error("Error migrating offline data to Supabase:", e);
+  } catch (e: any) {
+    console.warn("Error migrating offline data to Supabase:", e?.message || e);
   }
 }
