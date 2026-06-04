@@ -13,7 +13,10 @@ import {
   RefreshCw, 
   AlertCircle, 
   CheckCircle2,
-  KeyRound
+  KeyRound,
+  Activity,
+  Dumbbell,
+  Apple
 } from 'lucide-react';
 import { localDb } from '@/lib/db';
 
@@ -28,12 +31,25 @@ function LoginContent() {
   const [loginPassword, setLoginPassword] = useState('');
   
   // Sign Up flow state
-  const [signUpStep, setSignUpStep] = useState<'email' | 'otp' | 'credentials'>('email');
+  const [signUpStep, setSignUpStep] = useState<'email' | 'otp' | 'credentials' | 'profile'>('email');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
+  // Profile onboarding details during Sign Up
+  const [name, setName] = useState('');
+  const [weightKg, setWeightKg] = useState('72');
+  const [heightCm, setHeightCm] = useState('178');
+  const [goal, setGoal] = useState<'weight loss' | 'muscle gain' | 'endurance' | 'flexibility'>('muscle gain');
+  const [experience, setExperience] = useState<'beginner' | 'intermediate' | 'advanced'>('intermediate');
+  const [equipment, setEquipment] = useState<'home' | 'gym' | 'none'>('gym');
+  const [daysPerWeek, setDaysPerWeek] = useState(4);
+  const [dietType, setDietType] = useState<'veg' | 'non-veg' | 'vegan'>('non-veg');
+  const [dietGoal, setDietGoal] = useState<'lose fat' | 'gain muscle' | 'maintain'>('gain muscle');
+  const [allergiesInput, setAllergiesInput] = useState('');
+  const [mealsPerDay, setMealsPerDay] = useState(4);
+
   // OTP Pin Inputs: 6 digits
   const [otpPin, setOtpPin] = useState<string[]>(Array(6).fill(''));
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -212,8 +228,8 @@ function LoginContent() {
     }
   };
 
-  // Sign Up: Step 3 - Submit Username & Password
-  const handleRegister = async (e: React.FormEvent) => {
+  // Sign Up: Step 3 - Submit Username & Password (Local Check)
+  const handleRegisterCredentials = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setErrorMsg('Username and Password are required.');
@@ -235,8 +251,40 @@ function LoginContent() {
       return;
     }
 
+    // Check if username already exists locally
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), username: username.trim(), password: password.trim(), checkOnly: true })
+    }).then(async res => {
+      const data = await res.json();
+      if (!res.ok && data.error && data.error.includes('taken')) {
+        setErrorMsg(data.error);
+      } else {
+        setErrorMsg('');
+        setName(username);
+        setSignUpStep('profile');
+        setSuccessMsg('Credentials verified! Please fill out your fitness parameters for custom AI Coaching.');
+      }
+    }).catch(() => {
+      // Offline fallback: allow proceeding
+      setErrorMsg('');
+      setName(username);
+      setSignUpStep('profile');
+    });
+  };
+
+  // Sign Up: Step 4 - Submit Profile details & complete signup
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg('');
+    setSuccessMsg('Saving profile and contacting AI Trainer...');
+
+    const allergies = allergiesInput
+      .split(',')
+      .map(item => item.trim())
+      .filter(item => item.length > 0);
 
     try {
       const res = await fetch('/api/auth/register', {
@@ -245,7 +293,19 @@ function LoginContent() {
         body: JSON.stringify({
           email: email.trim(),
           username: username.trim().toLowerCase(),
-          password: password.trim()
+          password: password.trim(),
+          name: name.trim() || username.trim(),
+          weight_kg: Number(weightKg),
+          height_cm: Number(heightCm),
+          goal,
+          experience,
+          equipment,
+          days_per_week: Number(daysPerWeek),
+          diet_type: dietType,
+          diet_goal: dietGoal,
+          allergies,
+          meals_per_day: Number(mealsPerDay),
+          language: 'english'
         }),
       });
 
@@ -259,15 +319,60 @@ function LoginContent() {
       localStorage.setItem('fitcore_logged_in', 'true');
       localDb.updateProfile(data.user);
 
-      // Seed default plans
+      // Seed default plans locally as a fallback immediately to prevent landing screen crash
       seedMockData();
 
+      // Trigger background AI customization
+      try {
+        await Promise.all([
+          fetch('/api/workout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              days: Number(daysPerWeek),
+              experience: experience,
+              goal: goal,
+              equipment: equipment,
+              userId: data.user.id,
+              language: 'english'
+            })
+          }).then(async r => {
+            const wData = await r.json();
+            if (r.ok && wData.plan) localDb.saveWorkoutPlan(wData.plan, experience);
+          }),
+          fetch('/api/diet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              diet_type: dietType,
+              goal: dietGoal,
+              weight_kg: Number(weightKg),
+              height_cm: Number(heightCm),
+              allergies: allergies,
+              meals_per_day: Number(mealsPerDay),
+              userId: data.user.id,
+              language: 'english'
+            })
+          }).then(async r => {
+            const dData = await r.json();
+            if (r.ok && dData.plan) localDb.saveDietPlan(dData.plan);
+          })
+        ]);
+        
+        // Add a default welcome message to AI Coach
+        localDb.clearChat();
+        const welcomeMsg = `I have generated your custom training and meal plans! Based on your target to ${goal} using ${equipment} equipment ${daysPerWeek} days a week, I've designed a brand-new plan. What would you like to discuss first?`;
+        localDb.addChatMessage('ai', welcomeMsg);
+      } catch (aiErr) {
+        console.warn("Background AI customization failed, fallback seed active:", aiErr);
+      }
+
       window.dispatchEvent(new Event('fitcore_profile_updated'));
-      setSuccessMsg('Account registered and logged in successfully!');
+      setSuccessMsg('Account created and customized successfully! Redirecting...');
       
       setTimeout(() => {
-        router.push('/profile'); // Redirect to profile page to customize physical info!
-      }, 800);
+        router.push('/');
+      }, 1500);
 
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to complete registration.');
@@ -649,7 +754,7 @@ function LoginContent() {
 
             {/* SIGN UP STEP 3: SET USERNAME AND PASSWORD */}
             {signUpStep === 'credentials' && (
-              <form onSubmit={handleRegister} className="space-y-4 text-left animate-[fadeIn_0.3s_ease]">
+              <form onSubmit={handleRegisterCredentials} className="space-y-4 text-left animate-[fadeIn_0.3s_ease]">
                 <div className="space-y-2">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Choose Username</label>
                   <div className="relative">
@@ -703,17 +808,222 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:scale-[1.01] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-purple-500 hover:scale-[1.01] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  Continue to Profile Setup
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </form>
+            )}
+
+            {/* SIGN UP STEP 4: PHYSICAL & NUTRITION PROFILE ONBOARDING */}
+            {signUpStep === 'profile' && (
+              <form onSubmit={handleRegister} className="space-y-4 text-left animate-[fadeIn_0.3s_ease]">
+                <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-bold border-b border-white/5 pb-1.5 mb-2.5">
+                  <Activity className="h-4 w-4" />
+                  <span>Physical & Nutrition Parameters</span>
+                </div>
+
+                {/* SCROLLABLE WIZARD FORM PANEL */}
+                <div className="max-h-[360px] overflow-y-auto pr-1.5 space-y-4 scrollbar-thin">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Display Name</label>
+                    <input 
+                      type="text" 
+                      value={name} 
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-white text-xs outline-none transition-colors"
+                      placeholder="Your full name"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Weight (kg)</label>
+                      <input 
+                        type="number" 
+                        value={weightKg} 
+                        onChange={(e) => setWeightKg(e.target.value)}
+                        required
+                        min="30"
+                        max="250"
+                        disabled={isSubmitting}
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-white text-xs outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Height (cm)</label>
+                      <input 
+                        type="number" 
+                        value={heightCm} 
+                        onChange={(e) => setHeightCm(e.target.value)}
+                        required
+                        min="100"
+                        max="250"
+                        disabled={isSubmitting}
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-white text-xs outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Fitness Goal</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['weight loss', 'muscle gain', 'endurance', 'flexibility'].map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          disabled={isSubmitting}
+                          onClick={() => setGoal(g as any)}
+                          className={`px-3 py-2 rounded-xl border text-[11px] capitalize transition-all text-center ${
+                            goal === g
+                              ? 'bg-cyan-500/10 border-cyan-400 text-cyan-400'
+                              : 'bg-[#0b0e14] border-white/8 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Experience Level</label>
+                      <select 
+                        value={experience} 
+                        onChange={(e) => setExperience(e.target.value as any)}
+                        disabled={isSubmitting}
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3 py-2.5 text-white text-xs outline-none transition-colors"
+                      >
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Weekly Days</label>
+                      <select 
+                        value={daysPerWeek} 
+                        onChange={(e) => setDaysPerWeek(Number(e.target.value))}
+                        disabled={isSubmitting}
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3 py-2.5 text-white text-xs outline-none transition-colors"
+                      >
+                        <option value={2}>2 Days / Week</option>
+                        <option value={3}>3 Days / Week</option>
+                        <option value={4}>4 Days / Week</option>
+                        <option value={5}>5 Days / Week</option>
+                        <option value={6}>6 Days / Week</option>
+                        <option value={7}>7 Days / Week</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Available Equipment</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'gym', label: 'Gym' },
+                        { id: 'home', label: 'Home' },
+                        { id: 'none', label: 'Bodyweight' }
+                      ].map((eq) => (
+                        <button
+                          key={eq.id}
+                          type="button"
+                          disabled={isSubmitting}
+                          onClick={() => setEquipment(eq.id as any)}
+                          className={`py-2 rounded-xl border text-[11px] transition-all text-center ${
+                            equipment === eq.id
+                              ? 'bg-purple-500/10 border-purple-400 text-purple-400'
+                              : 'bg-[#0b0e14] border-white/8 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          {eq.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/5 pt-2.5 flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
+                    <Apple className="h-4 w-4" />
+                    <span>Nutrition Details</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Diet Type</label>
+                      <select 
+                        value={dietType} 
+                        onChange={(e) => setDietType(e.target.value as any)}
+                        disabled={isSubmitting}
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3 py-2.5 text-white text-xs outline-none transition-colors"
+                      >
+                        <option value="veg">Vegetarian</option>
+                        <option value="non-veg">Non-Vegetarian</option>
+                        <option value="vegan">Vegan</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Diet Goal</label>
+                      <select 
+                        value={dietGoal} 
+                        onChange={(e) => setDietGoal(e.target.value as any)}
+                        disabled={isSubmitting}
+                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3 py-2.5 text-white text-xs outline-none transition-colors"
+                      >
+                        <option value="lose fat">Lose Fat</option>
+                        <option value="gain muscle">Gain Muscle</option>
+                        <option value="maintain">Maintain</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Allergies / Exclusions</label>
+                    <input 
+                      type="text" 
+                      value={allergiesInput} 
+                      onChange={(e) => setAllergiesInput(e.target.value)}
+                      disabled={isSubmitting}
+                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-white text-xs outline-none transition-colors"
+                      placeholder="e.g. peanuts, dairy (comma separated)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Meals per Day</label>
+                    <select 
+                      value={mealsPerDay} 
+                      onChange={(e) => setMealsPerDay(Number(e.target.value))}
+                      disabled={isSubmitting}
+                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-3 py-2.5 text-white text-xs outline-none transition-colors"
+                    >
+                      <option value={2}>2 Meals + Snacks</option>
+                      <option value={3}>3 Meals</option>
+                      <option value={4}>3 Meals + 1 Snack</option>
+                      <option value={5}>4 Meals + 1 Snack</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full mt-2.5 py-3.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:scale-[1.01] text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
-                      Creating Account...
+                      Creating Account & Generating Plans...
                     </>
                   ) : (
                     <>
-                      Complete Signup & Start Training
-                      <ArrowRight className="h-4 w-4" />
+                      Complete Sign Up & Generate Plans
+                      <Sparkles className="h-4 w-4 text-yellow-300" />
                     </>
                   )}
                 </button>

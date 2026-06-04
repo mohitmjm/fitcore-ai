@@ -3,7 +3,8 @@ import { registerUser, isUsernameRegistered } from '@/lib/otp';
 
 export async function POST(request: Request) {
   try {
-    const { email, username, password } = await request.json();
+    const body = await request.json();
+    const { email, username, password, ...profileData } = body;
 
     if (!email || !username || !password) {
       return NextResponse.json(
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     }
 
     // Register user in mock server-side database
-    const newUser = registerUser(cleanEmail, cleanUsername, cleanPassword);
+    const newUser = registerUser(cleanEmail, cleanUsername, cleanPassword, profileData);
 
     return NextResponse.json({
       success: true,

@@ -352,7 +352,7 @@ export function isUsernameRegistered(username: string): boolean {
   return users[lowerUser] !== undefined;
 }
 
-export function registerUser(email: string, username: string, password: string): AppUser {
+export function registerUser(email: string, username: string, password: string, profileData?: Partial<AppUser>): AppUser {
   const users = readUsers();
   const lowerEmail = email.toLowerCase().trim();
   const lowerUsername = username.toLowerCase().trim();
@@ -361,23 +361,24 @@ export function registerUser(email: string, username: string, password: string):
     email: lowerEmail,
     username: lowerUsername,
     password: password, // plaintext for local mock database
-    name: username,
+    name: profileData?.name || username,
     is_subscribed: false,
     wallet_balance: 100,
     referrals: [],
     whatsapp_enabled: true,
     sms_enabled: false,
     email_enabled: true,
-    goal: 'muscle gain',
-    experience: 'intermediate',
-    equipment: 'gym',
-    days_per_week: 4,
-    diet_type: 'non-veg',
-    diet_goal: 'gain muscle',
-    meals_per_day: 4,
-    weight_kg: 72,
-    height_cm: 178,
-    language: 'english'
+    goal: profileData?.goal || 'muscle gain',
+    experience: profileData?.experience || 'intermediate',
+    equipment: profileData?.equipment || 'gym',
+    days_per_week: profileData?.days_per_week || 4,
+    diet_type: profileData?.diet_type || 'non-veg',
+    diet_goal: profileData?.diet_goal || 'gain muscle',
+    allergies: profileData?.allergies || [],
+    meals_per_day: profileData?.meals_per_day || 4,
+    weight_kg: profileData?.weight_kg || 72,
+    height_cm: profileData?.height_cm || 178,
+    language: profileData?.language || 'english'
   };
 
   users[lowerUsername] = newUser;
