@@ -292,6 +292,7 @@ export interface AppUser {
   height_cm?: number;
   language?: 'english' | 'hinglish';
   is_subscribed?: boolean;
+  subscription_expires_at?: string;
   wallet_balance?: number;
   referrals?: string[];
   whatsapp_enabled?: boolean;
@@ -363,6 +364,7 @@ export function registerUser(email: string, username: string, password: string, 
     password: password, // plaintext for local mock database
     name: profileData?.name || username,
     is_subscribed: true,
+    subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     wallet_balance: 100,
     referrals: [],
     whatsapp_enabled: true,

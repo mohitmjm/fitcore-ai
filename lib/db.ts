@@ -30,6 +30,7 @@ export interface UserProfile {
   language?: 'english' | 'hinglish';
   created_at?: string;
   is_subscribed?: boolean;
+  subscription_expires_at?: string;
   wallet_balance?: number;
   referrals?: string[];
   whatsapp_enabled?: boolean;
@@ -149,6 +150,7 @@ export const localDb = {
       height_cm: 178,
       language: 'english',
       is_subscribed: true,
+      subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       wallet_balance: 100,
       referrals: [],
       whatsapp_enabled: true,
@@ -191,6 +193,7 @@ export const localDb = {
         weight_kg: updated.weight_kg || null,
         height_cm: updated.height_cm || null,
         is_subscribed: updated.is_subscribed ?? true,
+        subscription_expires_at: updated.subscription_expires_at || null,
         wallet_balance: updated.wallet_balance ?? 100,
         referrals: updated.referrals ?? [],
         whatsapp_enabled: updated.whatsapp_enabled ?? true,

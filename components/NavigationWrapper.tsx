@@ -257,7 +257,10 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     setTimeout(() => {
       setPaymentStep('success');
       setTimeout(() => {
-        localDb.updateProfile({ is_subscribed: true });
+        localDb.updateProfile({ 
+          is_subscribed: true,
+          subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
         window.dispatchEvent(new Event('fitcore_profile_updated'));
         setPaymentStep('form');
       }, 1500);
@@ -270,14 +273,21 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     setTimeout(() => {
       setPaymentStep('success');
       setTimeout(() => {
-        localDb.updateProfile({ is_subscribed: true });
+        localDb.updateProfile({ 
+          is_subscribed: true,
+          subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
         window.dispatchEvent(new Event('fitcore_profile_updated'));
         setPaymentStep('form');
       }, 1500);
     }, 2500);
   };
 
-  if (isLoggedIn && !profile?.is_subscribed) {
+  const isSubscriptionActive = profile?.is_subscribed && (
+    !profile?.subscription_expires_at || new Date(profile.subscription_expires_at) > new Date()
+  );
+
+  if (isLoggedIn && !isSubscriptionActive) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[var(--background)]">
         <div className="absolute inset-0 -top-40 bg-gradient-radial-neon opacity-30 pointer-events-none -z-10" />
@@ -534,17 +544,27 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
         {/* PROFILE SUMMARY & LOGOUT IN SIDEBAR BOTTOM */}
         <div className="p-4 border-t border-[rgba(255,255,255,0.06)] bg-white/2 space-y-3">
           {profile && (
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-md">
-                {profile.name ? profile.name[0].toUpperCase() : 'U'}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate text-gray-200">{profile.name}</p>
-                <div className="flex items-center gap-1 text-[11px] text-cyan-400 capitalize">
-                  <Target className="h-3 w-3" />
-                  <span className="truncate">{profile.goal || 'No Goal'}</span>
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-md">
+                  {profile.name ? profile.name[0].toUpperCase() : 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate text-gray-200">{profile.name}</p>
+                  <div className="flex items-center gap-1 text-[11px] text-cyan-400 capitalize">
+                    <Target className="h-3 w-3" />
+                    <span className="truncate">{profile.goal || 'No Goal'}</span>
+                  </div>
                 </div>
               </div>
+              {profile.subscription_expires_at && (
+                <div className="text-[10px] text-gray-400 bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5 flex items-center justify-between gap-1">
+                  <span className="text-cyan-400 font-bold shrink-0">Sub Expiry:</span>
+                  <span className="truncate font-mono text-gray-300">
+                    {new Date(profile.subscription_expires_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           <button

@@ -108,10 +108,19 @@ export default function ProfilePage() {
     const newBal = walletBalance - 100;
     setWalletBalance(newBal);
     
-    localDb.updateProfile({ wallet_balance: newBal });
+    const currentExpiry = profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : new Date();
+    const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+    const newExpiry = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const updatedProf = localDb.updateProfile({ 
+      wallet_balance: newBal,
+      is_subscribed: true,
+      subscription_expires_at: newExpiry
+    });
+    setProfile(updatedProf);
     window.dispatchEvent(new Event('fitcore_profile_updated'));
     
-    alert("Redemption Successful! ₹100 balance applied to extend your subscription renewal.");
+    alert(`Redemption Successful! ₹100 balance applied. Subscription extended until ${new Date(newExpiry).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })}.`);
   };
 
   const handleSendTestNotification = () => {
@@ -700,6 +709,11 @@ export default function ProfilePage() {
               </div>
               <p className="text-xs text-gray-400 leading-normal">
                 You are currently subscribed. Access to AI workouts, diets, analytics, and coach chat is active.
+                {profile?.subscription_expires_at && (
+                  <span className="block mt-1 font-semibold text-cyan-400">
+                    Validity: Up to {new Date(profile.subscription_expires_at).toLocaleDateString(undefined, { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </span>
+                )}
               </p>
             </div>
 
