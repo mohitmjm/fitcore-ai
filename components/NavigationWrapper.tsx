@@ -102,7 +102,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
             meals_per_day: prof.meals_per_day || null,
             weight_kg: prof.weight_kg || null,
             height_cm: prof.height_cm || null,
-            is_subscribed: prof.is_subscribed ?? false,
+            is_subscribed: prof.is_subscribed ?? true,
             wallet_balance: prof.wallet_balance ?? 100,
             referrals: prof.referrals ?? [],
             whatsapp_enabled: prof.whatsapp_enabled ?? true,

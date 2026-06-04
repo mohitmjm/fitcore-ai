@@ -12,8 +12,8 @@ interface OtpStore {
   [email: string]: OtpData;
 }
 
-// Set up JSON-based OTP file path inside the .next directory to persist through hot-reloads
-const STORE_DIR = path.join(process.cwd(), '.next');
+// Set up JSON-based OTP file path inside the data directory to persist through hot-reloads and builds
+const STORE_DIR = path.join(process.cwd(), 'data');
 const STORE_FILE = path.join(STORE_DIR, 'otps.json');
 
 // Ensure store directory exists
@@ -22,7 +22,7 @@ function ensureStoreFile() {
     try {
       fs.mkdirSync(STORE_DIR, { recursive: true });
     } catch (e) {
-      console.warn("Could not create .next directory for OTP storage", e);
+      console.warn("Could not create data directory for OTP storage", e);
     }
   }
   if (!fs.existsSync(STORE_FILE)) {
@@ -362,7 +362,7 @@ export function registerUser(email: string, username: string, password: string, 
     username: lowerUsername,
     password: password, // plaintext for local mock database
     name: profileData?.name || username,
-    is_subscribed: false,
+    is_subscribed: true,
     wallet_balance: 100,
     referrals: [],
     whatsapp_enabled: true,

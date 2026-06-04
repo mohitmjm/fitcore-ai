@@ -162,6 +162,15 @@ export const localDb = {
     const updated = { ...current, ...profile };
     setLocalStorage('fitcore_user_profile', updated);
 
+    // Sync to credentials users.json server store in the background
+    if (updated.username && updated.username !== 'flexchampion') {
+      fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      }).catch(err => console.warn("Failed to sync profile to server users.json:", err));
+    }
+
     // Sync to Supabase in the background
     if (supabase) {
       supabase.from('users').upsert({
@@ -181,7 +190,7 @@ export const localDb = {
         meals_per_day: updated.meals_per_day || null,
         weight_kg: updated.weight_kg || null,
         height_cm: updated.height_cm || null,
-        is_subscribed: updated.is_subscribed ?? false,
+        is_subscribed: updated.is_subscribed ?? true,
         wallet_balance: updated.wallet_balance ?? 100,
         referrals: updated.referrals ?? [],
         whatsapp_enabled: updated.whatsapp_enabled ?? true,
