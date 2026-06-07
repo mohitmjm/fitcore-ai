@@ -67,4 +67,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Copyright (c) 2026 Mohit. All rights reserved.
 
-This repository is **PROPRIETARY AND CONFIDENTIAL**. Copying, redistributing, publishing, sublicensing, reverse-engineering, or creating derivative works of this source code, database structures, or styling systems is strictly prohibited under federal and international copyright laws. Violations will result in civil and criminal prosecution. See the [LICENSE](LICENSE) file for details.
+This repository is **PROPRIETARY AND CONFIDENTIAL**. Copying, redistributing, publishing, sublicensing, reverse-engineering, or creating derivative works of this source code, database structures, or styling systems is strictly prohibited under federal and international copyright laws. Violations will result in civil and criminal prosecution. See the [LICENSE](LICENSE) file for details....
