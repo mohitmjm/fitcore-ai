@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import NavigationWrapper from "@/components/NavigationWrapper";
+import { ClerkProvider } from "@clerk/nextjs";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,12 +20,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} dark h-full antialiased`} suppressHydrationWarning>
-      <body className="min-h-full bg-[var(--background)] text-[var(--foreground)] flex flex-col font-sans" suppressHydrationWarning>
-        <NavigationWrapper>
-          {children}
-        </NavigationWrapper>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" className={`${inter.variable} dark h-full antialiased`} suppressHydrationWarning>
+        <body className="min-h-full bg-[var(--background)] text-[var(--foreground)] flex flex-col font-sans" suppressHydrationWarning>
+          <NavigationWrapper>
+            {children}
+          </NavigationWrapper>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

@@ -56,7 +56,91 @@ export async function callAI(prompt: string, format?: 'json'): Promise<string> {
 function getFallbackAIResponse(prompt: string): string {
   const promptLower = prompt.toLowerCase();
 
-  // 1. FRIDGE RECIPE GENERATION FALLBACK
+  
+  // 1. DIET PLAN GENERATION FALLBACK (Evaluated first to avoid matching recipe/nutritionist checks in 7-day prompts)
+  if (
+    (promptLower.includes("7-day") || promptLower.includes("7 day") || promptLower.includes("7 days")) &&
+    (promptLower.includes("diet") || promptLower.includes("meal") || promptLower.includes("nutrition"))
+  ) {
+    const typeMatch = prompt.match(/diet:\s*([a-zA-Z\-]+)/i);
+    const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
+    const weightMatch = prompt.match(/(\d+)\s*kg/i);
+    
+    const dietType = typeMatch ? typeMatch[1].trim() : 'veg';
+    const goal = goalMatch ? goalMatch[1].trim() : 'maintain';
+    const weight = weightMatch ? parseInt(weightMatch[1]) : 70;
+    
+    // Indian Diet Mock Data
+    const breakfastList = dietType === 'vegan' 
+      ? ["Oats cooked in Almond Milk with chia seeds & almonds", "Tofu Scramble with spinach & whole wheat toast", "Ragi Roti with cucumber salad & mint chutney"]
+      : dietType === 'veg'
+      ? ["Paneer Bhurji with 2 multigrain rotis", "Oats Upma with mixed vegetables and peanuts", "3 Moong Dal Cheelas with low-fat paneer stuffing"]
+      : ["3 Egg Whites + 1 Whole Egg Scramble with veggies & brown toast", "Chicken Keema Paratha (made with whole wheat)", "Oats Porridge with 1 scoop Whey Protein & nuts"];
+
+    const lunchList = dietType === 'vegan'
+      ? ["Brown rice, Chana Masala (chickpeas), and sautéed broccoli", "Quinoa salad with roasted chickpeas, cucumber, and tahini dressing", "Dal Tadka, brown rice, and dry bhindi (okra) sabzi"]
+      : dietType === 'veg'
+      ? ["Brown rice, Paneer Tikka Masala, and Dal Makhani (light)", "Multigrain Roti, Mixed Vegetable curry, and a bowl of Greek Yogurt", "Soya chunks pulao with cucumber raita & green salad"]
+      : ["Grilled Chicken breast with brown rice & steamed broccoli/carrots", "Fish Curry (pomfret or rawas) with steamed rice & green salad", "Whole wheat chicken wrap with yogurt mint dressing & bell peppers"];
+
+    const dinnerList = dietType === 'vegan'
+      ? ["Tofu & vegetable stir-fry in light soy sauce with quinoa", "Red lentil soup (masoor dal) with roasted asparagus", "Soya chunks curry with 2 phulkas and cucumber slices"]
+      : dietType === 'veg'
+      ? ["Palak Paneer (cottage cheese in spinach) with 2 Bajra rotis", "Mixed vegetable khichdi (light) with a bowl of curd", "Paneer & bell pepper skewers with mint chutney"]
+      : ["Baked Salmon/Chicken with sweet potato mash & asparagus", "Chicken breast salad with olive oil dressing & pumpkin seeds", "Egg white bhurji (4 eggs) with sautéed mushrooms & 1 roti"];
+
+    const snacksList = dietType === 'vegan'
+      ? ["A handful of roasted almonds & walnuts", "Roasted chickpeas (chana)", "Chia seed pudding with coconut milk", "Apple slices with peanut butter"]
+      : ["Handful of roasted almonds & pumpkin seeds", "A scoop of whey protein in water", "Roasted makhana (foxnuts)", "Boiled egg whites (for non-veg) or paneer cubes (for veg)"];
+
+    const targetCals = goal.includes("lose") ? (weight * 22) : goal.includes("gain") ? (weight * 32) : (weight * 26);
+    
+    const mealPlan = [];
+    const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    for (let i = 0; i < 7; i++) {
+      const bMeal = breakfastList[i % breakfastList.length];
+      const lMeal = lunchList[i % lunchList.length];
+      const dMeal = dinnerList[i % dinnerList.length];
+      const sMeal = snacksList[i % snacksList.length];
+      
+      mealPlan.push({
+        day: weekdays[i],
+        breakfast: {
+          name: bMeal,
+          calories: Math.round(targetCals * 0.25),
+          protein_g: dietType === 'non-veg' ? 25 : 15,
+          carbs_g: 40,
+          fat_g: 10
+        },
+        lunch: {
+          name: lMeal,
+          calories: Math.round(targetCals * 0.35),
+          protein_g: dietType === 'non-veg' ? 35 : 20,
+          carbs_g: 55,
+          fat_g: 12
+        },
+        dinner: {
+          name: dMeal,
+          calories: Math.round(targetCals * 0.25),
+          protein_g: dietType === 'non-veg' ? 30 : 18,
+          carbs_g: 35,
+          fat_g: 8
+        },
+        snacks: {
+          name: sMeal,
+          calories: Math.round(targetCals * 0.15),
+          protein_g: 10,
+          carbs_g: 15,
+          fat_g: 6
+        }
+      });
+    }
+    
+    return JSON.stringify(mealPlan);
+  }
+
+  // 2. FRIDGE RECIPE GENERATION FALLBACK
   if (promptLower.includes("nutritionist") || promptLower.includes("recipe") || promptLower.includes("fridge")) {
     const isHinglish = promptLower.includes("hinglish");
     const recipe = {
@@ -83,7 +167,7 @@ function getFallbackAIResponse(prompt: string): string {
     return JSON.stringify(recipe);
   }
 
-  // 2. WORKOUT PLAN GENERATION FALLBACK
+  // 3. WORKOUT PLAN GENERATION FALLBACK
   if (promptLower.includes("generate a") && (promptLower.includes("workout") || promptLower.includes("training"))) {
     // Extract info if possible
     const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
@@ -185,85 +269,7 @@ function getFallbackAIResponse(prompt: string): string {
     return JSON.stringify(plan);
   }
   
-  // 3. DIET PLAN GENERATION FALLBACK
-  if (promptLower.includes("create a") && (promptLower.includes("diet") || promptLower.includes("meal") || promptLower.includes("nutrition")) && !promptLower.includes("recipe")) {
-    const typeMatch = prompt.match(/diet:\s*([a-zA-Z\-]+)/i);
-    const goalMatch = prompt.match(/goal:\s*([a-zA-Z\s]+)/i);
-    const weightMatch = prompt.match(/(\d+)\s*kg/i);
-    
-    const dietType = typeMatch ? typeMatch[1].trim() : 'veg';
-    const goal = goalMatch ? goalMatch[1].trim() : 'maintain';
-    const weight = weightMatch ? parseInt(weightMatch[1]) : 70;
-    
-    // Indian Diet Mock Data
-    const breakfastList = dietType === 'vegan' 
-      ? ["Oats cooked in Almond Milk with chia seeds & almonds", "Tofu Scramble with spinach & whole wheat toast", "Ragi Roti with cucumber salad & mint chutney"]
-      : dietType === 'veg'
-      ? ["Paneer Bhurji with 2 multigrain rotis", "Oats Upma with mixed vegetables and peanuts", "3 Moong Dal Cheelas with low-fat paneer stuffing"]
-      : ["3 Egg Whites + 1 Whole Egg Scramble with veggies & brown toast", "Chicken Keema Paratha (made with whole wheat)", "Oats Porridge with 1 scoop Whey Protein & nuts"];
-
-    const lunchList = dietType === 'vegan'
-      ? ["Brown rice, Chana Masala (chickpeas), and sautéed broccoli", "Quinoa salad with roasted chickpeas, cucumber, and tahini dressing", "Dal Tadka, brown rice, and dry bhindi (okra) sabzi"]
-      : dietType === 'veg'
-      ? ["Brown rice, Paneer Tikka Masala, and Dal Makhani (light)", "Multigrain Roti, Mixed Vegetable curry, and a bowl of Greek Yogurt", "Soya chunks pulao with cucumber raita & green salad"]
-      : ["Grilled Chicken breast with brown rice & steamed broccoli/carrots", "Fish Curry (pomfret or rawas) with steamed rice & green salad", "Whole wheat chicken wrap with yogurt mint dressing & bell peppers"];
-
-    const dinnerList = dietType === 'vegan'
-      ? ["Tofu & vegetable stir-fry in light soy sauce with quinoa", "Red lentil soup (masoor dal) with roasted asparagus", "Soya chunks curry with 2 phulkas and cucumber slices"]
-      : dietType === 'veg'
-      ? ["Palak Paneer (cottage cheese in spinach) with 2 Bajra rotis", "Mixed vegetable khichdi (light) with a bowl of curd", "Paneer & bell pepper skewers with mint chutney"]
-      : ["Baked Salmon/Chicken with sweet potato mash & asparagus", "Chicken breast salad with olive oil dressing & pumpkin seeds", "Egg white bhurji (4 eggs) with sautéed mushrooms & 1 roti"];
-
-    const snacksList = dietType === 'vegan'
-      ? ["A handful of roasted almonds & walnuts", "Roasted chickpeas (chana)", "Chia seed pudding with coconut milk", "Apple slices with peanut butter"]
-      : ["Handful of roasted almonds & pumpkin seeds", "A scoop of whey protein in water", "Roasted makhana (foxnuts)", "Boiled egg whites (for non-veg) or paneer cubes (for veg)"];
-
-    const targetCals = goal.includes("lose") ? (weight * 22) : goal.includes("gain") ? (weight * 32) : (weight * 26);
-    
-    const mealPlan = [];
-    const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    
-    for (let i = 0; i < 7; i++) {
-      const bMeal = breakfastList[i % breakfastList.length];
-      const lMeal = lunchList[i % lunchList.length];
-      const dMeal = dinnerList[i % dinnerList.length];
-      const sMeal = snacksList[i % snacksList.length];
-      
-      mealPlan.push({
-        day: weekdays[i],
-        breakfast: {
-          name: bMeal,
-          calories: Math.round(targetCals * 0.25),
-          protein_g: dietType === 'non-veg' ? 25 : 15,
-          carbs_g: 40,
-          fat_g: 10
-        },
-        lunch: {
-          name: lMeal,
-          calories: Math.round(targetCals * 0.35),
-          protein_g: dietType === 'non-veg' ? 35 : 20,
-          carbs_g: 55,
-          fat_g: 12
-        },
-        dinner: {
-          name: dMeal,
-          calories: Math.round(targetCals * 0.25),
-          protein_g: dietType === 'non-veg' ? 30 : 18,
-          carbs_g: 35,
-          fat_g: 8
-        },
-        snacks: {
-          name: sMeal,
-          calories: Math.round(targetCals * 0.15),
-          protein_g: 10,
-          carbs_g: 15,
-          fat_g: 6
-        }
-      });
-    }
-    
-    return JSON.stringify(mealPlan);
-  }
+  
 
 
   // 4. EXERCISE SWAP ALTERNATIVES FALLBACK

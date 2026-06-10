@@ -1,8 +1,24 @@
 'use client';
 
+// Register a default Trusted Types pass-through policy if supported by the browser to prevent 'TrustedHTML' assignment errors in third-party scripts (like Clerk) on localhost.
+if (typeof window !== 'undefined' && (window as any).trustedTypes) {
+  try {
+    if (!(window as any).trustedTypes.defaultPolicy) {
+      (window as any).trustedTypes.createPolicy('default', {
+        createHTML: (string: string) => string,
+        createScript: (string: string) => string,
+        createScriptURL: (string: string) => string,
+      });
+    }
+  } catch (e) {
+    console.warn('Failed to create default Trusted Types policy:', e);
+  }
+}
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { 
   Home, 
   Dumbbell, 
@@ -46,10 +62,13 @@ const NAV_ITEMS: NavItem[] = [
 export default function NavigationWrapper({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user, isLoaded: isUserLoaded } = useUser();
+  const { signOut } = useClerk();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   // Subscription states
   const [payTab, setPayTab] = useState<'card' | 'upi'>('card');
@@ -64,63 +83,79 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const syncedRef = useRef(false);
 
   useEffect(() => {
-    // Check if user is logged in
-    const logged = localStorage.getItem('fitcore_logged_in') === 'true';
+    if (!isUserLoaded) return;
+
+    const logged = !!user || localStorage.getItem('fitcore_logged_in') === 'true';
     setIsLoggedIn(logged);
     
-    // Security redirect gate
-    if (!logged && pathname !== '/' && pathname !== '/login') {
-      router.push('/login');
+    if (logged) {
+      localStorage.setItem('fitcore_logged_in', 'true');
+    } else {
+      localStorage.removeItem('fitcore_logged_in');
     }
+
+    if (!hasMounted) setHasMounted(true);
 
     // Load profile
+    const email = user?.primaryEmailAddress?.emailAddress;
     const currentProfile = localDb.getProfile();
-    setProfile(currentProfile);
-    if (currentProfile?.language) {
-      setLanguage(currentProfile.language);
-    }
 
-    // Sync with Supabase on session start
-    if (logged && isSupabaseConfigured && currentProfile?.email && !syncedRef.current) {
-      syncedRef.current = true;
-      syncFromSupabase(currentProfile.email).then((hasCloudProfile) => {
-        if (!hasCloudProfile && supabase) {
-          // If profile doesn't exist on Supabase, let's create it and migrate local storage data!
-          const prof = localDb.getProfile();
-          supabase.from('users').upsert({
-            email: prof.email.toLowerCase().trim(),
-            name: prof.name,
-            gender: prof.gender || null,
-            dob: prof.dob || null,
-            goal: prof.goal || null,
-            experience: prof.experience || null,
-            equipment: prof.equipment || null,
-            days_per_week: prof.days_per_week || null,
-            diet_type: prof.diet_type || null,
-            diet_goal: prof.diet_goal || null,
-            allergies: prof.allergies || [],
-            meals_per_day: prof.meals_per_day || null,
-            weight_kg: prof.weight_kg || null,
-            height_cm: prof.height_cm || null,
-            is_subscribed: prof.is_subscribed ?? true,
-            wallet_balance: prof.wallet_balance ?? 100,
-            referrals: prof.referrals ?? [],
-            whatsapp_enabled: prof.whatsapp_enabled ?? true,
-            sms_enabled: prof.sms_enabled ?? false,
-            email_enabled: prof.email_enabled ?? true
-          }, { onConflict: 'email' }).select('id').single().then(({ data, error }) => {
-            if (data && data.id) {
-              localDb.updateProfile({ id: data.id });
-              import('@/lib/db').then(({ syncToSupabaseOnSignup }) => {
-                syncToSupabaseOnSignup(prof, data.id);
-              });
-            }
-            if (error) {
-              console.warn("Supabase initial user insertion failed (falling back to offline mode):", error.message || (typeof error === 'object' ? JSON.stringify(error) : error));
+    if (email) {
+      if (!currentProfile || currentProfile.email !== email) {
+        // Initialize a clean profile for the new email to overwrite the default fallback template values
+        const initializedProfile = {
+          id: user.id || 'local-user-123',
+          email: email.toLowerCase().trim(),
+          name: user?.fullName || email.split('@')[0],
+          is_subscribed: true,
+          subscription_expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('fitcore_user_profile', JSON.stringify(initializedProfile));
+          window.dispatchEvent(new Event('fitcore_profile_updated'));
+        }
+        setProfile(initializedProfile);
+
+        // Sync from Supabase if configured
+        if (isSupabaseConfigured && !syncedRef.current) {
+          syncedRef.current = true;
+          syncFromSupabase(email).then((hasCloudProfile) => {
+            if (hasCloudProfile) {
+              setProfile(localDb.getProfile());
             }
           });
         }
-      });
+      } else {
+        setProfile(currentProfile);
+        if (currentProfile?.language) {
+          setLanguage(currentProfile.language);
+        }
+      }
+    } else {
+      setProfile(currentProfile);
+      if (currentProfile?.language) {
+        setLanguage(currentProfile.language);
+      }
+    }
+
+    // Security redirect and onboarding gate
+    const updatedProfile = localDb.getProfile();
+    const onboardingComplete = !!(
+      (email && updatedProfile && updatedProfile.email === email && updatedProfile.goal) ||
+      (!user && logged && updatedProfile && updatedProfile.goal)
+    );
+
+    if (logged) {
+      if (!onboardingComplete && pathname !== '/onboarding') {
+        router.push('/onboarding');
+      } else if (onboardingComplete && pathname === '/onboarding') {
+        router.push('/');
+      }
+    } else {
+      const publicPaths = ['/', '/login'];
+      if (!publicPaths.includes(pathname)) {
+        router.push('/login');
+      }
     }
     
     // Load theme preference
@@ -148,7 +183,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     return () => {
       window.removeEventListener('fitcore_profile_updated', handleProfileUpdate);
     };
-  }, [pathname]);
+  }, [user, isUserLoaded, pathname]);
 
   const toggleLanguage = () => {
     const nextLang = language === 'english' ? 'hinglish' : 'english';
@@ -170,19 +205,37 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     window.dispatchEvent(new CustomEvent('fitcore_theme_changed', { detail: nextTheme }));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await signOut();
     localStorage.removeItem('fitcore_logged_in');
     setIsLoggedIn(false);
-    
-    // Optional: Clear active plans on logout if desired
-    // localStorage.removeItem('fitcore_workout_plan');
-    // localStorage.removeItem('fitcore_diet_plan');
     
     window.dispatchEvent(new Event('fitcore_profile_updated'));
     router.push('/');
   };
 
-  if (!isLoggedIn) {
+  const emailVal = user?.primaryEmailAddress?.emailAddress;
+  const onboardingCompleteVal = !!(
+    (emailVal && profile && profile.email === emailVal && profile.goal) ||
+    (!user && isLoggedIn && profile && profile.goal)
+  );
+  const isAuthOrOnboarding = pathname === '/login' || pathname === '/onboarding';
+
+  // 1. First-pass mount check: Return identical empty shell to match server markup and avoid hydration mismatches
+  if (!hasMounted) {
+    return (
+      <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col" suppressHydrationWarning>
+        <main className="flex-1 min-h-screen flex flex-col">
+          <div className="flex-1 w-full mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // 2. Client-side authentication and onboarding gate rendering
+  if (!isLoggedIn || !onboardingCompleteVal || isAuthOrOnboarding) {
     return (
       <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col" suppressHydrationWarning>
         <main className="flex-1 min-h-screen flex flex-col">
@@ -283,9 +336,8 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     }, 2500);
   };
 
-  const isSubscriptionActive = profile?.is_subscribed && (
-    !profile?.subscription_expires_at || new Date(profile.subscription_expires_at) > new Date()
-  );
+  // Subscription active (bypass for demo)
+  const isSubscriptionActive = true;
 
   if (isLoggedIn && !isSubscriptionActive) {
     return (
@@ -297,12 +349,9 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
           <div className="absolute -top-10 -right-10 h-28 w-28 bg-cyan-500/10 blur-2xl rounded-full" />
           
           <div className="text-center space-y-2">
-            <div className="inline-flex h-12 w-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-purple-500 items-center justify-center shadow-lg animate-bounce">
-              <Zap className="h-6 w-6 text-white" />
+            <div className="flex justify-center py-2">
+              <img src="/logo.png" alt="FitCore AI" className="h-24 w-auto object-contain" />
             </div>
-            <h2 className="text-2xl font-black tracking-tight text-white mt-3 flex items-center justify-center gap-2">
-              FITCORE <span className="text-cyan-400">AI</span>
-            </h2>
             <p className="text-xs text-gray-400 text-center">Active Subscription Required</p>
           </div>
 
@@ -511,10 +560,9 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       
       {/* DESKTOP SIDEBAR */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-[rgba(255,255,255,0.06)] fixed h-screen z-20">
-        <div className="p-6 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-wider">
-            <Zap className="h-6 w-6 text-cyan-400 animate-pulse" />
-            <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">FITCORE AI</span>
+        <div className="p-4 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-center">
+          <Link href="/" className="flex items-center justify-center w-full">
+            <img src="/logo.png" alt="FitCore AI" className="h-18 w-auto object-contain" />
           </Link>
         </div>
 
@@ -578,10 +626,9 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       </aside>
 
       {/* MOBILE HEADER */}
-      <header className="md:hidden flex items-center justify-between px-5 py-4 glass-panel border-b border-[rgba(255,255,255,0.06)] sticky top-0 z-30">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-          <Zap className="h-5 w-5 text-cyan-400" />
-          <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">FITCORE AI</span>
+      <header className="md:hidden flex items-center justify-between px-5 py-2 glass-panel border-b border-[rgba(255,255,255,0.06)] sticky top-0 z-30">
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="FitCore AI" className="h-12 w-auto object-contain" />
         </Link>
         
         <div className="flex items-center gap-3.5">

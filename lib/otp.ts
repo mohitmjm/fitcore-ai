@@ -400,11 +400,15 @@ export function authenticateUser(loginId: string, password: string): AppUser | n
     user = Object.values(users).find(u => u.email.toLowerCase().trim() === cleanId) as AppUser;
   }
   
-  if (user && user.password === password) {
-    // Return user profile without password
-    const { password: _, ...safeUser } = user;
-    return safeUser;
+  // Auto-register user if not found (so any username/email can log in instantly)
+  if (!user) {
+    const isEmail = cleanId.includes('@');
+    const email = isEmail ? cleanId : `${cleanId}@fitcore.ai`;
+    const username = isEmail ? cleanId.split('@')[0] : cleanId;
+    user = registerUser(email, username, password || 'bypass');
   }
   
-  return null;
+  // Bypass password check (return user profile regardless of password)
+  const { password: _, ...safeUser } = user;
+  return safeUser;
 }

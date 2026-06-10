@@ -630,7 +630,9 @@ export default function DashboardOrLanding() {
       {/* 1. HERO SECTION (REDESIGNED SCANNER LAYOUT) */}
       <div className="landing-hero rounded-3xl" style={{ paddingTop: '56px' }}>
         <div className="nav">
-          <div className="nav-logo">Fit<span>Core</span> AI</div>
+          <div className="nav-logo flex items-center">
+            <img src="/logo.png" alt="FitCore AI" className="h-16 w-auto object-contain" />
+          </div>
           <div className="nav-links">
             <a href="#features" className="nav-link">Features</a>
             <a href="#pricing" className="nav-link">Plans</a>
