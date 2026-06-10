@@ -1,10 +1,10 @@
-export async function callAI(prompt: string, format?: 'json'): Promise<string> {
-  const hfToken = process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || '';
-  const model = process.env.HUGGINGFACE_MODEL || 'deepseek-ai/DeepSeek-V4-Pro';
+export async function callAI(prompt: string, format?: 'json'): Promise<string> {
+  const geminiApiKey = process.env.GEMINI_API_KEY || '';
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   
   // If no token is provided, warn and use local fallback
-  if (!hfToken) {
-    console.warn("Hugging Face API key missing. Using fallback mock generation.");
+  if (!geminiApiKey) {
+    console.warn("Gemini API key missing. Using fallback mock generation.");
     return getFallbackAIResponse(prompt);
   }
 
@@ -13,22 +13,21 @@ export async function callAI(prompt: string, format?: 'json'): Promise<string> {
     const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
     
     const reqBody: any = {
-      model: model,
-      messages: [
-        { role: "user", content: prompt }
-      ],
-      provider: "hf-inference"
+      contents: [
+        { parts: [{ text: prompt }] }
+      ]
     };
     
     if (format === 'json') {
-      reqBody.response_format = { type: "json_object" };
+      reqBody.generationConfig = {
+        responseMimeType: "application/json"
+      };
     }
     
-    const res = await fetch("https://router.huggingface.co/v1/chat/completions", {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${hfToken}`
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(reqBody),
       signal: controller.signal
@@ -38,25 +37,23 @@ export async function callAI(prompt: string, format?: 'json'): Promise<string> {
     
     if (!res.ok) {
       const errorText = await res.text().catch(() => "");
-      throw new Error(`Hugging Face API returned status ${res.status}: ${errorText}`);
+      throw new Error(`Gemini API returned status ${res.status}: ${errorText}`);
     }
     
     const data = await res.json();
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content || '';
+    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+      return data.candidates[0].content.parts[0].text || '';
     } else {
-      throw new Error("Invalid response format from Hugging Face API");
+      throw new Error("Invalid response format from Gemini API");
     }
   } catch (error) {
-    console.warn("Hugging Face API call failed, using fallback mock generation:", error);
+    console.warn("Gemini API call failed, using fallback mock generation:", error);
     return getFallbackAIResponse(prompt);
   }
 }
 
 function getFallbackAIResponse(prompt: string): string {
   const promptLower = prompt.toLowerCase();
-
-  
   // 1. DIET PLAN GENERATION FALLBACK (Evaluated first to avoid matching recipe/nutritionist checks in 7-day prompts)
   if (
     (promptLower.includes("7-day") || promptLower.includes("7 day") || promptLower.includes("7 days")) &&
