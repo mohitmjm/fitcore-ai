@@ -1,22 +1,21 @@
-PROPRIETARY AND CONFIDENTIAL LICENSE
-Copyright (c) 2026 Mohit. All rights reserved.
+MIT License
 
-WARNING: ALL RIGHTS RESERVED. THIS SOFTWARE SOURCE CODE IS PROPRIETARY AND CONFIDENTIAL. 
+Copyright (c) 2026 Mohit Mohatkar
 
-Permission is hereby DENIED to copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, or to permit persons to whom the Software is furnished to do so, subject to the following strict legal conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. PROHIBITION OF COPYING AND REDISTRIBUTION
-No part of this software, including but not limited to the source code, database schemas, styling elements, configuration files, assets, and documentation, may be reproduced, replicated, duplicated, copied, sold, resold, or redistributed in any form, by any means, electronic or mechanical, without the prior written consent of the Copyright Owner.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-2. RESTRICTION ON DECOMPILATION AND REVERSE ENGINEERING
-You may not reverse engineer, decompile, disassemble, or attempt to derive the source code of this software. Any attempt to do so shall constitute a direct violation of copyright laws and proprietary intellectual property rights.
-
-3. DERIVATIVE WORKS
-The creation of any derivative works, adaptations, or modifications based upon this software is strictly prohibited. All rights, title, and interest in and to any enhancements or changes made to the software shall remain the exclusive property of the Copyright Owner.
-
-4. SEVERE LEGAL CONSEQUENCES & APPLICABLE LAWS
-This Software is protected by copyright laws, international copyright treaties, and other intellectual property laws. Unauthorized duplication, modification, or distribution of this program, or any portion of it, may result in severe civil and criminal penalties, and will be prosecuted to the maximum extent possible under the law. 
-
-In the event of infringement, the Copyright Owner will seek maximum statutory damages, injunctions, attorney fees, and criminal prosecution under the applicable Intellectual Property and Copyright Laws of India (Copyright Act, 1957) and international copyright protections (Berne Convention).
-
-For licensing inquiries or permission requests, contact: owner@fitcore.ai
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
