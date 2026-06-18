@@ -1,4 +1,4 @@
-import { computeConsistency } from './consistency';
+import { computeConsistency, computeTrend, momentumLevel, type ConsistencyStats } from './consistency';
 
 /**
  * Gamification — consistency-first, derived (not stored).
@@ -48,6 +48,8 @@ export interface GamificationState {
   xpForNextLevel: number;
   progressPct: number;
   badges: Badge[];
+  /** The consistency snapshot computed alongside badges — lets callers avoid a second query. */
+  consistency: ConsistencyStats & { trend: 'up' | 'flat' | 'down'; momentum: number };
 }
 
 export function levelTitle(level: number): string {
@@ -96,6 +98,7 @@ export function computeGamification(input: GamificationInput): GamificationState
   const workouts = counts.get('workout_logged') ?? 0;
 
   const stats = computeConsistency(input.activityDates, input.today);
+  const trend = computeTrend(input.activityDates, input.today);
 
   const badges: Badge[] = [
     { id: 'first_workout', label: 'First Rep', description: 'Logged your first workout', earned: workouts >= 1 },
@@ -114,5 +117,6 @@ export function computeGamification(input: GamificationInput): GamificationState
     xpForNextLevel: lvl.xpForNextLevel,
     progressPct: lvl.progressPct,
     badges,
+    consistency: { ...stats, trend, momentum: momentumLevel(stats.monthPct) },
   };
 }

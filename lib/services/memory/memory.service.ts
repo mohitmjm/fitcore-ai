@@ -83,12 +83,27 @@ export const MemoryService = {
    * the latest behavior. Nested sub-objects are written whole (not via dot-paths) so the dev
    * in-memory store and MongoDB behave identically. Semantic episodic compaction comes later.
    */
-  async reflect(clerkUserId: string): Promise<void> {
-    const signals = await getCollection<MemorySignal>(SIGNALS);
-    const rows = await signals.find({ clerkUserId }).sort({ occurredAt: -1 }).limit(500).toArray();
-    if (rows.length === 0) return;
+  /**
+   * Reflection / compaction (Phase 1.5). Projects activity dates through the pure consistency
+   * policy and persists the derived behavioral layer onto CoachMemory:
+   *   - derived.consistencyTrend, derived.lapseRisk
+   *   - behavioral.adherenceRate28d
+   *   - motivational.currentMotivationTrend
+   *
+   * `reflectFromDates` is the efficient core: it takes pre-fetched activity dates (so a caller
+   * that already read memory_signals — e.g. getToday — does NOT trigger a second scan) and an
+   * optional already-loaded memory doc (so no second coach_memory read). It also does a
+   * compare-before-write: on the read path (Today loads), if nothing changed it skips the DB
+   * write entirely. Returns the up-to-date memory so callers needn't re-fetch.
+   */
+  async reflectFromDates(
+    clerkUserId: string,
+    dates: string[],
+    existingMemory?: CoachMemory | null,
+  ): Promise<CoachMemory | null> {
+    const mem = existingMemory !== undefined ? existingMemory : await this.getMemory(clerkUserId);
+    if (dates.length === 0) return mem;
 
-    const dates = rows.map((r) => new Date(r.occurredAt).toISOString().slice(0, 10));
     const today = new Date().toISOString().slice(0, 10);
     const stats = computeConsistency(dates, today);
     const trend = computeTrend(dates, today);
@@ -97,26 +112,41 @@ export const MemoryService = {
       stats.currentStreak === 0 && stats.last7 <= 1 ? 'high' : stats.monthPct < 40 ? 'med' : 'low';
     const motivationTrend: NonNullable<CoachMemory['motivational']>['currentMotivationTrend'] =
       trend === 'up' ? 'rising' : trend === 'down' ? 'declining' : 'stable';
+    const adherenceRate28d = Math.round(stats.monthPct) / 100;
 
-    const mem = await this.getMemory(clerkUserId);
+    // Compare-before-write: avoid a DB write on every Today load when nothing actually changed.
+    if (
+      mem &&
+      mem.derived?.consistencyTrend === trend &&
+      mem.derived?.lapseRisk === lapseRisk &&
+      mem.behavioral?.adherenceRate28d === adherenceRate28d &&
+      mem.motivational?.currentMotivationTrend === motivationTrend
+    ) {
+      return mem;
+    }
+
     const derived = {
       ...(mem?.derived ?? { currentMode: 'normal' as const }),
       consistencyTrend: trend,
       lapseRisk,
     };
-    const behavioral = {
-      ...(mem?.behavioral ?? {}),
-      adherenceRate28d: Math.round(stats.monthPct) / 100,
-    };
-    const motivational = {
-      ...(mem?.motivational ?? {}),
-      currentMotivationTrend: motivationTrend,
-    };
+    const behavioral = { ...(mem?.behavioral ?? {}), adherenceRate28d };
+    const motivational = { ...(mem?.motivational ?? {}), currentMotivationTrend: motivationTrend };
 
     const memColl = await getCollection<CoachMemory>(MEMORY);
     const update = {
       $set: { derived, behavioral, motivational, updatedAt: new Date() },
     } as unknown as UpdateFilter<CoachMemory>;
     await memColl.updateOne({ clerkUserId }, update, { upsert: true });
+
+    return { ...(mem ?? ({ clerkUserId, schemaVersion: 1 } as CoachMemory)), derived, behavioral, motivational };
+  },
+
+  /** Convenience wrapper: read the recent signal stream, then reflect. */
+  async reflect(clerkUserId: string): Promise<void> {
+    const signals = await getCollection<MemorySignal>(SIGNALS);
+    const rows = await signals.find({ clerkUserId }).sort({ occurredAt: -1 }).limit(500).toArray();
+    const dates = rows.map((r) => new Date(r.occurredAt).toISOString().slice(0, 10));
+    await this.reflectFromDates(clerkUserId, dates);
   },
 };

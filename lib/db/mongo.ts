@@ -1,5 +1,6 @@
 import { MongoClient, type Db } from 'mongodb';
 import { getMemoryDb } from './memory-store';
+import { ensureIndexes } from './indexes';
 
 /**
  * Serverless-safe MongoDB connection. Uses a cached global client promise so Vercel function
@@ -10,6 +11,7 @@ import { getMemoryDb } from './memory-store';
  */
 const globalForMongo = globalThis as unknown as {
   _mongoClientPromise?: Promise<MongoClient>;
+  _indexInit?: boolean;
 };
 
 function getClientPromise(uri: string): Promise<MongoClient> {
@@ -26,5 +28,16 @@ export async function getDb(): Promise<Db> {
     return getMemoryDb();
   }
   const client = await getClientPromise(uri);
-  return client.db(process.env.MONGODB_DB || 'fitcore');
+  const db = client.db(process.env.MONGODB_DB || 'fitcore');
+
+  // Ensure hot-path indexes exist — once per process, fire-and-forget so we never block a request.
+  if (!globalForMongo._indexInit) {
+    globalForMongo._indexInit = true;
+    void ensureIndexes(db).catch((err) => {
+      console.warn('[fitcore] ensureIndexes failed (will retry next cold start):', err);
+      globalForMongo._indexInit = false;
+    });
+  }
+
+  return db;
 }

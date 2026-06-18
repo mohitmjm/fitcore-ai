@@ -143,3 +143,26 @@ key** — no code changes, just env vars + a restart.
   not wired pending your go-ahead).
 - Build verified green after all changes (36/36 routes). QA pass still recommended (run `npm run
   test` + a manual click-through).
+
+
+---
+
+## ⚡ Session 3 additions (performance audit + CTO polish)
+
+Full details in [`PERFORMANCE-AUDIT.md`](./PERFORMANCE-AUDIT.md). Build + 31 unit tests green throughout.
+
+**Performance — implemented:**
+- **MongoDB indexes** (`lib/db/indexes.ts`, wired once in `getDb`) — compound `{clerkUserId, occurredAt:-1}` etc. Turns COLLSCAN+in-memory-sort into index range scans and removes the unindexed-32MB-sort failure mode. Biggest scalability fix.
+- **`getToday` read dedup** — was 3× `memory_signals` + 2× `coach_memory` reads + a write every load; now 3 parallel reads + compare-before-write (writes only when derived values change). New `MemoryService.reflectFromDates` + `ConsistencyService.summarize` (pure).
+- **Lazy-loaded Recharts** — `/progress` First Load JS **219 kB → 108 kB (-51%, measured)** via `next/dynamic` (`app/progress/ProgressChart.tsx`).
+- **Meal-photo body cap** — bounded base64 size (memory/DoS guard).
+- **Achievements single fetch** — gamification now returns the consistency snapshot it already computes, so the page no longer double-scans signals (`/gamification` + `/consistency` → one call).
+- **Removed unused `@supabase/supabase-js`** dependency.
+
+**CTO polish:**
+- `app/robots.ts`, `app/sitemap.ts` (SEO), branded `app/not-found.tsx` (404).
+- Rewrote stale `README.md` to the real stack (Clerk/Mongo/Gemini, consistency vision).
+
+**Still recommended (not yet applied):** fold habits/level into the `/today` payload or add SWR for client request dedup; `next/image` for the two logos; a rollup `stats_daily` doc for users exceeding the 2000-signal window.
+
+**Git:** these Session-3 changes are committed locally? No — uncommitted on disk, ready to commit/push when you want (and after you've rotated the secrets flagged earlier).

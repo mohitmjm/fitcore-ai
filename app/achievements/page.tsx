@@ -28,6 +28,7 @@ interface Gamification {
   xpForNextLevel: number;
   progressPct: number;
   badges: Badge[];
+  consistency: Consistency;
 }
 interface Consistency {
   currentStreak: number;
@@ -50,12 +51,13 @@ export default function AchievementsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [g, con] = await Promise.all([
-        fetch('/api/v1/gamification').then((r) => (r.ok ? r.json() : null)),
-        fetch('/api/v1/consistency').then((r) => (r.ok ? r.json() : null)),
-      ]);
-      if (g?.data) setGame(g.data as Gamification);
-      if (con?.data) setC(con.data as Consistency);
+      // Single fetch: gamification returns the consistency snapshot it already computes.
+      const g = await fetch('/api/v1/gamification').then((r) => (r.ok ? r.json() : null));
+      if (g?.data) {
+        const data = g.data as Gamification;
+        setGame(data);
+        setC(data.consistency);
+      }
     } catch {
       /* ignore */
     } finally {

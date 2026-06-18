@@ -32,14 +32,17 @@ export const ConsistencyService = {
     return rows.map((r) => new Date(r.occurredAt).toISOString().slice(0, 10));
   },
 
-  async getSummary(clerkUserId: string): Promise<ConsistencySummary> {
-    const dates = await this.getActivityDates(clerkUserId);
-    const today = todayISO();
+  /** Pure projection — no DB. Lets callers that already hold the dates avoid a second query. */
+  summarize(dates: string[], today: string = todayISO()): ConsistencySummary {
     const stats = computeConsistency(dates, today);
     return {
       ...stats,
       trend: computeTrend(dates, today),
       momentum: momentumLevel(stats.monthPct),
     };
+  },
+
+  async getSummary(clerkUserId: string): Promise<ConsistencySummary> {
+    return this.summarize(await this.getActivityDates(clerkUserId));
   },
 };

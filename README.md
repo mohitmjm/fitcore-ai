@@ -1,70 +1,66 @@
-# FitCore AI — Personal Fitness Companion
+# FitCore AI
 
-FitCore AI is a premium, full-stack personal fitness companion web application. It is designed to create customized workout plans, structure Indian macro meal logs, track progress metrics and photographs, and provide a direct chat interface with an AI coach.
+> Your AI fitness coach that builds **consistency** — adaptive plans, a coach that remembers you, and streaks that keep you showing up.
 
-All AI features run using Hugging Face Serverless Inference with **DeepSeek V4 Pro**, ensuring zero local hardware costs and instant response speeds.
+FitCore AI is an AI-powered fitness platform whose North Star is **consistency**, not workouts or
+calories. The app does the thinking: it plans your day, adapts to your real life (busy weeks,
+travel, motivation dips), and keeps you accountable on web — and (soon) WhatsApp.
 
----
+## Stack
 
-## ⚡ Key Features
+- **Next.js 15** (App Router) · **TypeScript** · **Tailwind CSS v4**
+- **Clerk** — authentication
+- **MongoDB Atlas** — data (with an in-memory dev fallback when `MONGODB_URI` is unset)
+- **AI provider layer** — Gemini / OpenAI / Claude behind one interface, with a deterministic
+  offline mock so everything runs without keys
+- **Recharts** (lazy-loaded) · **Vitest** (policy unit tests)
 
-*   **AI Workout Planner**: Generates multi-day split plans customized by goal (muscle gain, fat loss, endurance), experience levels, and equipment. Exercises include form tips and clickable daily checkoffs.
-*   **AI Diet & Nutrition logs**: Prepares custom 7-day Indian meal plans with visual gauges for calories, protein, carbs, and fats.
-*   **AI Localization (English & Hinglish)**: Option to set your preferred AI language. Choosing Hinglish instructs the AI to generate exercise advice, food logs, and chat coaching responses in romanized Hindi (*e.g., "Back straight rakhein aur slowly perform karein"*).
-*   **Progress Analytics Dashboard**: Visualizes changes in bodyweight and measurements (chest, waist, arms) over time using interactive Recharts graphs. Includes a local progress photo log.
-*   **AI Coach Chat**: Directly consult your AI trainer for form adjustments, motivation, or diet swaps.
-*   **Offline Fallback Sync**: Implements a robust `localStorage` backup that functions immediately out-of-the-box if remote databases or Ollama servers are offline.
+## Key features
 
----
+- **Adaptive Today screen** — one screen answering "what should I do right now?"
+- **Coach Memory** — learns goals, patterns, and motivation; reflects on your behavior
+- **Consistency engine** — streaks, 7/28-day rhythm, trend, momentum (the North Star)
+- **Habits**, **gamification** (XP / levels / badges), and an **Achievements** screen
+- **AI coach chat**, **adaptive workout & meal plans**, **AI meal-photo analysis**
+- **WhatsApp-ready** channel + event layer (architecture in place; not wired yet)
 
-## 🛠️ Technology Stack
+## Getting started
 
-*   **Frontend & Backend**: Next.js 14 (App Router) + TypeScript
-*   **Styling**: Tailwind CSS v4, dark-mode first design, glassmorphism panels, harmonious glow gradients
-*   **Charts & Visuals**: Recharts (responsive line/area plots)
-*   **Icons**: Lucide React
-*   **Database**: Supabase (PostgreSQL) with local fallback layer
-*   **AI Inference**: Hugging Face Serverless Inference API running DeepSeek V4 Pro (`deepseek-ai/DeepSeek-V4-Pro`)
-
----
-
-## 🚀 Getting Started
-
-### 1. Prerequisites
-*   Node.js (v18.0.0 or higher)
-*   Hugging Face account (with an active User Access Token)
-
-### 2. Setup Hugging Face Token
-Create a Hugging Face account and generate a User Access Token. Set this token in your `.env.local` configuration.
-
-### 3. Install Dependencies
-Clone the repository and install the packages:
 ```bash
 npm install
+cp .env.example .env.local   # fill in what you have; all integrations are optional
+npm run dev                  # http://localhost:3000
 ```
 
-### 4. Database Setup (Supabase)
-Create a new Supabase project and execute the migration file located at:
-`supabase/migrations/20260603000000_fitness_companion_schema.sql`
+The app runs end-to-end with **zero credentials** (dev auth + in-memory store + AI mock). Add any
+key from `.env.example` and restart to light up that integration. Confirm AI wiring at
+`GET /api/v1/ai/health?ping=1`.
 
-Configure your keys in `.env.local` to connect:
-```env
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
-HUGGINGFACE_API_KEY=your-huggingface-token
-```
-*Note: If these keys are left empty, the application will run in Offline LocalStorage Mode automatically.*
+## Scripts
 
-### 5. Start Development Server
-```bash
-npm run dev
-```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build |
+| `npm run start` | Run the production build |
+| `npm run lint` | ESLint |
+| `npm run test` | Vitest (pure-policy unit tests) |
 
----
+## Architecture
 
-## 🔒 Proprietary License
+- `app/` — App Router pages + `app/api/v1/*` (mobile-ready `{data,meta}` / `{error}` envelopes)
+- `lib/policy/*` — pure, deterministic, unit-tested decision logic (today, consistency, insight, gamification)
+- `lib/services/*` — domain services; all user data is `clerkUserId`-scoped via `OwnedRepository`
+- `lib/ai/*` — provider registry + adapters + offline mock
+- `lib/channels/*`, `lib/events/*` — channel-agnostic messaging + domain event bus
+- `lib/db/*` — Mongo client, repository, indexes, dev in-memory store
 
-Copyright (c) 2026 Mohit. All rights reserved.
+Design docs live in `docs/architecture/` (start with `vision-and-north-star.md`). The current
+status + roadmap is in [`NEXT-STEPS.md`](./NEXT-STEPS.md); the performance audit is in
+[`PERFORMANCE-AUDIT.md`](./PERFORMANCE-AUDIT.md).
 
-This repository is **PROPRIETARY AND CONFIDENTIAL**. Copying, redistributing, publishing, sublicensing, reverse-engineering, or creating derivative works of this source code, database structures, or styling systems is strictly prohibited under federal and international copyright laws. Violations will result in civil and criminal prosecution. See the [LICENSE](LICENSE) file for details....
+## Security
+
+User data has no row-level security in MongoDB, so the `OwnedRepository` base class enforces
+`clerkUserId` scoping on every read/write. Never commit secrets — `.env*` is git-ignored; set
+production keys in the Vercel dashboard.
