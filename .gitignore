@@ -43,3 +43,7 @@ next-env.d.ts
 # local databases
 /data
 
+
+# Kiro agent tooling (skills/config — not part of the app)
+.kiro/
+skills-lock.json

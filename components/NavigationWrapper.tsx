@@ -1,702 +1,164 @@
 'use client';
 
-// Register a default Trusted Types pass-through policy if supported by the browser to prevent 'TrustedHTML' assignment errors in third-party scripts (like Clerk) on localhost.
-if (typeof window !== 'undefined' && (window as any).trustedTypes) {
-  try {
-    if (!(window as any).trustedTypes.defaultPolicy) {
-      (window as any).trustedTypes.createPolicy('default', {
-        createHTML: (string: string) => string,
-        createScript: (string: string) => string,
-        createScriptURL: (string: string) => string,
-      });
-    }
-  } catch (e) {
-    console.warn('Failed to create default Trusted Types policy:', e);
-  }
-}
-
-import React, { useState, useEffect, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUser, useClerk } from '@clerk/nextjs';
-import { 
-  Home, 
-  Dumbbell, 
-  Utensils, 
-  LineChart, 
-  MessageSquare, 
-  User,
-  Zap,
-  Menu,
-  X,
-  Target,
-  Globe,
-  Sun,
-  Moon,
-  LogOut,
-  CreditCard,
-  QrCode,
-  Check,
-  Lock,
-  Loader2,
-  AlertCircle
-} from 'lucide-react';
-import { localDb, UserProfile, isSupabaseConfigured, syncFromSupabase, supabase } from '@/lib/db';
+import { Home, Dumbbell, Utensils, LineChart, MessageSquare, User, LogOut, Sun, Moon, Trophy } from 'lucide-react';
 
 interface NavItem {
   name: string;
   href: string;
-  icon: React.ComponentType<any>;
-  description: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: Home, description: 'Daily summary & quick tasks' },
-  { name: 'Workouts', href: '/workout', icon: Dumbbell, description: 'AI generated exercise plan' },
-  { name: 'Diet Planner', href: '/diet', icon: Utensils, description: 'AI meal logs & macro breakdown' },
-  { name: 'Progress', href: '/progress', icon: LineChart, description: 'Weight, metrics & photo logger' },
-  { name: 'AI Coach', href: '/chat', icon: MessageSquare, description: 'Chat with DeepSeek V4 Pro Coach' },
-  { name: 'Profile', href: '/profile', icon: User, description: 'Adjust goals & preference' },
+  { name: 'Today', href: '/today', icon: Home },
+  { name: 'Workouts', href: '/workout', icon: Dumbbell },
+  { name: 'Diet', href: '/diet', icon: Utensils },
+  { name: 'Progress', href: '/progress', icon: LineChart },
+  { name: 'Awards', href: '/achievements', icon: Trophy },
+  { name: 'Coach', href: '/chat', icon: MessageSquare },
+  { name: 'Profile', href: '/profile', icon: User },
 ];
 
+// Pages rendered WITHOUT the app shell (marketing, Clerk auth pages, onboarding).
+const NO_SHELL = ['/', '/login', '/welcome'];
+function isNoShell(pathname: string): boolean {
+  return NO_SHELL.includes(pathname) || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
+}
+
 export default function NavigationWrapper({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { user, isLoaded: isUserLoaded } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const { signOut } = useClerk();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [language, setLanguage] = useState<'english' | 'hinglish'>('english');
+  const pathname = usePathname();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
-
-  // Subscription states
-  const [payTab, setPayTab] = useState<'card' | 'upi'>('card');
-  const [cardName, setCardName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [upiId, setUpiId] = useState('');
-  const [paymentStep, setPaymentStep] = useState<'form' | 'processing' | 'success'>('form');
-  const [paymentError, setPaymentError] = useState('');
-
-  const syncedRef = useRef(false);
 
   useEffect(() => {
-    if (!isUserLoaded) return;
-
-    const logged = !!user || localStorage.getItem('fitcore_logged_in') === 'true';
-    setIsLoggedIn(logged);
-    
-    if (logged) {
-      localStorage.setItem('fitcore_logged_in', 'true');
-    } else {
-      localStorage.removeItem('fitcore_logged_in');
+    setMounted(true);
+    const stored = (typeof window !== 'undefined' ? localStorage.getItem('fitcore_theme') : null) as
+      | 'dark'
+      | 'light'
+      | null;
+    if (stored) {
+      setTheme(stored);
+      document.documentElement.classList.toggle('light', stored === 'light');
     }
+  }, []);
 
-    if (!hasMounted) setHasMounted(true);
-
-    // Load profile
-    const email = user?.primaryEmailAddress?.emailAddress;
-    const currentProfile = localDb.getProfile();
-
-    if (email) {
-      if (!currentProfile || currentProfile.email !== email) {
-        // Initialize a clean profile for the new email to overwrite the default fallback template values
-        const initializedProfile = {
-          id: user.id || 'local-user-123',
-          email: email.toLowerCase().trim(),
-          name: user?.fullName || email.split('@')[0],
-          is_subscribed: true,
-          subscription_expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-        };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('fitcore_user_profile', JSON.stringify(initializedProfile));
-          window.dispatchEvent(new Event('fitcore_profile_updated'));
-        }
-        setProfile(initializedProfile);
-
-        // Sync from Supabase if configured
-        if (isSupabaseConfigured && !syncedRef.current) {
-          syncedRef.current = true;
-          syncFromSupabase(email).then((hasCloudProfile) => {
-            if (hasCloudProfile) {
-              setProfile(localDb.getProfile());
-            }
-          });
-        }
-      } else {
-        setProfile(currentProfile);
-        if (currentProfile?.language) {
-          setLanguage(currentProfile.language);
-        }
-      }
-    } else {
-      setProfile(currentProfile);
-      if (currentProfile?.language) {
-        setLanguage(currentProfile.language);
-      }
-    }
-
-    // Security redirect and onboarding gate
-    const updatedProfile = localDb.getProfile();
-    const onboardingComplete = !!(
-      (email && updatedProfile && updatedProfile.email === email && updatedProfile.goal) ||
-      (!user && logged && updatedProfile && updatedProfile.goal)
-    );
-
-    if (logged) {
-      if (!onboardingComplete && pathname !== '/onboarding') {
-        router.push('/onboarding');
-      } else if (onboardingComplete && pathname === '/onboarding') {
-        router.push('/');
-      }
-    } else {
-      const publicPaths = ['/', '/login'];
-      if (!publicPaths.includes(pathname)) {
-        router.push('/login');
-      }
-    }
-    
-    // Load theme preference
-    const storedTheme = localStorage.getItem('fitcore_theme') as 'dark' | 'light' | null;
-    if (storedTheme) {
-      setTheme(storedTheme);
-      if (storedTheme === 'light') {
-        document.documentElement.classList.add('light');
-      } else {
-        document.documentElement.classList.remove('light');
-      }
-    }
-    
-    // Add event listener to refresh profile when updated on profile page
-    const handleProfileUpdate = () => {
-      const updatedProfile = localDb.getProfile();
-      setProfile(updatedProfile);
-      if (updatedProfile?.language) {
-        setLanguage(updatedProfile.language);
-      }
-      const loggedInNow = localStorage.getItem('fitcore_logged_in') === 'true';
-      setIsLoggedIn(loggedInNow);
-    };
-    window.addEventListener('fitcore_profile_updated', handleProfileUpdate);
+  // First-run gate: signed in but no profile yet → lightweight onboarding.
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || pathname === '/welcome') return;
+    let active = true;
+    fetch('/api/v1/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { data?: { onboarded?: boolean } } | null) => {
+        if (active && j?.data && !j.data.onboarded) router.replace('/welcome');
+      })
+      .catch(() => {});
     return () => {
-      window.removeEventListener('fitcore_profile_updated', handleProfileUpdate);
+      active = false;
     };
-  }, [user, isUserLoaded, pathname]);
+  }, [isLoaded, isSignedIn, pathname, router]);
 
-  const toggleLanguage = () => {
-    const nextLang = language === 'english' ? 'hinglish' : 'english';
-    setLanguage(nextLang);
-    localDb.updateProfile({ language: nextLang });
-    window.dispatchEvent(new Event('fitcore_profile_updated'));
-    window.dispatchEvent(new CustomEvent('fitcore_language_changed', { detail: nextLang }));
-  };
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('fitcore_theme', next);
+    document.documentElement.classList.toggle('light', next === 'light');
+  }
 
-  const toggleTheme = () => {
-    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(nextTheme);
-    localStorage.setItem('fitcore_theme', nextTheme);
-    if (nextTheme === 'light') {
-      document.documentElement.classList.add('light');
-    } else {
-      document.documentElement.classList.remove('light');
-    }
-    window.dispatchEvent(new CustomEvent('fitcore_theme_changed', { detail: nextTheme }));
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-    localStorage.removeItem('fitcore_logged_in');
-    setIsLoggedIn(false);
-    
-    window.dispatchEvent(new Event('fitcore_profile_updated'));
-    router.push('/');
-  };
-
-  const emailVal = user?.primaryEmailAddress?.emailAddress;
-  const onboardingCompleteVal = !!(
-    (emailVal && profile && profile.email === emailVal && profile.goal) ||
-    (!user && isLoggedIn && profile && profile.goal)
-  );
-  const isAuthOrOnboarding = pathname === '/login' || pathname === '/onboarding';
-
-  // 1. First-pass mount check: Return identical empty shell to match server markup and avoid hydration mismatches
-  if (!hasMounted) {
+  // Plain render on marketing/auth/onboarding pages, before mount, or when signed out.
+  if (!mounted || isNoShell(pathname) || !isSignedIn) {
     return (
-      <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col" suppressHydrationWarning>
-        <main className="flex-1 min-h-screen flex flex-col">
-          <div className="flex-1 w-full mx-auto">
-            {children}
-          </div>
-        </main>
+      <div className="flex min-h-screen flex-col" suppressHydrationWarning>
+        <main className="flex-1">{children}</main>
       </div>
     );
   }
 
-  // 2. Client-side authentication and onboarding gate rendering
-  if (!isLoggedIn || !onboardingCompleteVal || isAuthOrOnboarding) {
-    return (
-      <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col" suppressHydrationWarning>
-        <main className="flex-1 min-h-screen flex flex-col">
-          <div className="flex-1 w-full mx-auto">
-            {children}
-          </div>
-        </main>
-        
-        {/* FLOATING PREFERENCES SWITCHER AT BOTTOM RIGHT */}
-        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
-          <button
-            onClick={toggleTheme}
-            className="flex items-center justify-center h-10 w-10 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 shadow-lg hover:scale-105 transition-all"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-yellow-400 animate-spin-slow" /> : <Moon className="h-4.5 w-4.5 text-purple-400" />}
-          </button>
-
-          <button
-            onClick={toggleLanguage}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 font-semibold text-xs tracking-wider shadow-lg hover:scale-105 transition-all"
-          >
-            <Globe className="h-4 w-4 text-cyan-400" />
-            <span>{language === 'english' ? 'English' : 'Hinglish'}</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const handleCardNumberChange = (val: string) => {
-    const clean = val.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const formatted = clean.match(/.{1,4}/g)?.join(' ') || clean;
-    setCardNumber(formatted.substring(0, 19));
-  };
-
-  const handleExpiryChange = (val: string) => {
-    const clean = val.replace(/\//g, '').replace(/[^0-9]/gi, '');
-    let formatted = clean;
-    if (clean.length > 2) {
-      formatted = `${clean.substring(0, 2)}/${clean.substring(2, 4)}`;
-    }
-    setCardExpiry(formatted.substring(0, 5));
-  };
-
-  const handlePaymentSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPaymentError('');
-    
-    if (payTab === 'card') {
-      if (cardNumber.replace(/\s/g, '').length !== 16) {
-        setPaymentError('Invalid Card Number. Must be 16 digits.');
-        return;
-      }
-      if (cardExpiry.length !== 5) {
-        setPaymentError('Invalid Expiry Date (MM/YY).');
-        return;
-      }
-      if (cardCvv.length !== 3) {
-        setPaymentError('Invalid CVV (3 digits).');
-        return;
-      }
-    } else {
-      if (!upiId || !upiId.includes('@')) {
-        setPaymentError('Please enter a valid UPI ID (e.g. user@upi).');
-        return;
-      }
-    }
-    
-    setPaymentStep('processing');
-    
-    setTimeout(() => {
-      setPaymentStep('success');
-      setTimeout(() => {
-        localDb.updateProfile({ 
-          is_subscribed: true,
-          subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        });
-        window.dispatchEvent(new Event('fitcore_profile_updated'));
-        setPaymentStep('form');
-      }, 1500);
-    }, 2500);
-  };
-
-  const handleUpiQrVerify = () => {
-    setPaymentError('');
-    setPaymentStep('processing');
-    setTimeout(() => {
-      setPaymentStep('success');
-      setTimeout(() => {
-        localDb.updateProfile({ 
-          is_subscribed: true,
-          subscription_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        });
-        window.dispatchEvent(new Event('fitcore_profile_updated'));
-        setPaymentStep('form');
-      }, 1500);
-    }, 2500);
-  };
-
-  // Subscription active (bypass for demo)
-  const isSubscriptionActive = true;
-
-  if (isLoggedIn && !isSubscriptionActive) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[var(--background)]">
-        <div className="absolute inset-0 -top-40 bg-gradient-radial-neon opacity-30 pointer-events-none -z-10" />
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 bg-purple-500/10 blur-3xl rounded-full pointer-events-none -z-10" />
-        
-        <div className="w-full max-w-lg glass-panel rounded-3xl border border-white/10 p-6 md:p-8 space-y-6 shadow-2xl relative">
-          <div className="absolute -top-10 -right-10 h-28 w-28 bg-cyan-500/10 blur-2xl rounded-full" />
-          
-          <div className="text-center space-y-2">
-            <div className="flex justify-center py-2">
-              <img src="/logo.png" alt="FitCore AI" className="h-24 w-auto object-contain" />
-            </div>
-            <p className="text-xs text-gray-400 text-center">Active Subscription Required</p>
-          </div>
-
-          {paymentStep === 'processing' && (
-            <div className="py-12 flex flex-col items-center justify-center space-y-4 animate-[fadeIn_0.3s_ease]">
-              <Loader2 className="h-10 w-10 text-cyan-400 animate-spin" />
-              <div className="text-center space-y-1">
-                <p className="text-sm font-bold text-white">Processing Secure Payment...</p>
-                <p className="text-[11px] text-gray-500">Verifying transaction with gateway, please wait.</p>
-              </div>
-            </div>
-          )}
-
-          {paymentStep === 'success' && (
-            <div className="py-12 flex flex-col items-center justify-center space-y-4 animate-[scaleIn_0.3s_ease]">
-              <div className="h-14 w-14 rounded-full bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center">
-                <Check className="h-8 w-8 text-emerald-400" />
-              </div>
-              <div className="text-center space-y-1">
-                <p className="text-base font-bold text-emerald-400">Payment Successful!</p>
-                <p className="text-[11px] text-gray-400">Activating your AI Personal Trainer dashboard...</p>
-              </div>
-            </div>
-          )}
-
-          {paymentStep === 'form' && (
-            <div className="space-y-6">
-              {/* Product Info Block */}
-              <div className="p-4 rounded-2xl bg-white/5 border border-white/8 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-300 font-bold">FitCore AI All-Access Pass</span>
-                  <span className="text-cyan-400 font-black">₹99 / month</span>
-                </div>
-                <p className="text-[10px] text-gray-400 leading-normal text-left">
-                  Unlock unlimited custom workout generators, 7-day Indian meal plans, body metrics progress logs, and your personal Llama 3.2 AI Fitness Coach chatbot.
-                </p>
-              </div>
-
-              {paymentError && (
-                <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
-                  <AlertCircle className="h-4.5 w-4.5 shrink-0" />
-                  <span>{paymentError}</span>
-                </div>
-              )}
-
-              {/* TABS */}
-              <div className="flex bg-[#0b0e14]/60 border border-white/5 p-1 rounded-xl">
-                <button
-                  onClick={() => setPayTab('card')}
-                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${
-                    payTab === 'card' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <CreditCard className="h-3.5 w-3.5" />
-                  Card Payment
-                </button>
-                <button
-                  onClick={() => setPayTab('upi')}
-                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${
-                    payTab === 'upi' ? 'bg-cyan-500 text-black' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <QrCode className="h-3.5 w-3.5" />
-                  UPI / QR
-                </button>
-              </div>
-
-              {payTab === 'card' ? (
-                <form onSubmit={handlePaymentSubmit} className="space-y-4 text-left">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Cardholder Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
-                      placeholder="e.g. Vikram Singh"
-                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Card Number</label>
-                    <input
-                      type="text"
-                      required
-                      value={cardNumber}
-                      onChange={(e) => handleCardNumberChange(e.target.value)}
-                      placeholder="XXXX XXXX XXXX XXXX"
-                      className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none font-mono tracking-widest"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Expiry (MM/YY)</label>
-                      <input
-                        type="text"
-                        required
-                        value={cardExpiry}
-                        onChange={(e) => handleExpiryChange(e.target.value)}
-                        placeholder="MM/YY"
-                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">CVV (3 Digits)</label>
-                      <input
-                        type="password"
-                        required
-                        maxLength={3}
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="***"
-                        className="w-full bg-[#0b0e14] border border-white/8 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-xs text-white outline-none font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-[1.01] flex items-center justify-center gap-1.5"
-                  >
-                    <Lock className="h-4 w-4" />
-                    Pay ₹99 Securely
-                  </button>
-                </form>
-              ) : (
-                <div className="space-y-5 text-center">
-                  <p className="text-[11px] text-gray-400">Scan this mock UPI QR code to complete the verification</p>
-                  
-                  <div className="relative inline-block">
-                    <svg width="150" height="150" viewBox="0 0 100 100" className="mx-auto bg-white p-2 rounded-2xl border border-white/10 shadow-lg">
-                      <rect x="5" y="5" width="25" height="25" fill="#0b0e14" />
-                      <rect x="10" y="10" width="15" height="15" fill="white" />
-                      <rect x="13" y="13" width="9" height="9" fill="#0b0e14" />
-
-                      <rect x="70" y="5" width="25" height="25" fill="#0b0e14" />
-                      <rect x="75" y="10" width="15" height="15" fill="white" />
-                      <rect x="78" y="13" width="9" height="9" fill="#0b0e14" />
-
-                      <rect x="5" y="70" width="25" height="25" fill="#0b0e14" />
-                      <rect x="10" y="75" width="15" height="15" fill="white" />
-                      <rect x="13" y="78" width="9" height="9" fill="#0b0e14" />
-
-                      <rect x="40" y="10" width="5" height="10" fill="#0b0e14" />
-                      <rect x="50" y="5" width="10" height="5" fill="#0b0e14" />
-                      <rect x="45" y="20" width="15" height="5" fill="#0b0e14" />
-                      
-                      <rect x="10" y="40" width="10" height="5" fill="#0b0e14" />
-                      <rect x="5" y="50" width="5" height="10" fill="#0b0e14" />
-                      <rect x="20" y="45" width="5" height="15" fill="#0b0e14" />
-
-                      <rect x="40" y="40" width="20" height="20" fill="#6366f1" opacity="0.8" />
-                      <rect x="45" y="45" width="10" height="10" fill="white" />
-                      
-                      <rect x="70" y="40" width="10" height="10" fill="#0b0e14" />
-                      <rect x="85" y="45" width="5" height="15" fill="#0b0e14" />
-                      <rect x="80" y="35" width="15" height="5" fill="#0b0e14" />
-
-                      <rect x="35" y="70" width="15" height="5" fill="#0b0e14" />
-                      <rect x="40" y="80" width="5" height="10" fill="#0b0e14" />
-                      <rect x="50" y="75" width="15" height="5" fill="#0b0e14" />
-
-                      <rect x="70" y="70" width="10" height="5" fill="#0b0e14" />
-                      <rect x="85" y="75" width="10" height="10" fill="#0b0e14" />
-                      <rect x="75" y="85" width="5" height="10" fill="#0b0e14" />
-                    </svg>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Merchant UPI ID</span>
-                      <span className="text-xs font-mono text-white font-bold select-all bg-[#0b0e14] border border-white/5 px-3 py-1.5 rounded-lg inline-block">fitcore@ybl</span>
-                    </div>
-
-                    <button
-                      onClick={handleUpiQrVerify}
-                      className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
-                    >
-                      Simulate QR Payment Success
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* LOGOUT */}
-              <div className="border-t border-white/5 pt-4 text-center">
-                <button
-                  onClick={handleLogout}
-                  className="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors inline-flex items-center gap-1.5"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Cancel & Log Out
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+  const displayName = user?.firstName || user?.username || 'Athlete';
 
   return (
-    <div className="flex min-h-screen bg-transparent text-[var(--foreground)] flex-col md:flex-row" suppressHydrationWarning>
-      
-      {/* DESKTOP SIDEBAR */}
-      <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-[rgba(255,255,255,0.06)] fixed h-screen z-20">
-        <div className="p-4 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-center">
-          <Link href="/" className="flex items-center justify-center w-full">
-            <img src="/logo.png" alt="FitCore AI" className="h-18 w-auto object-contain" />
+    <div className="flex min-h-screen flex-col md:flex-row" suppressHydrationWarning>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-white/5 fixed h-screen z-20">
+        <div className="p-4 border-b border-white/5 flex items-center justify-center">
+          <Link href="/today">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="FitCore AI" className="h-16 w-auto object-contain" />
           </Link>
         </div>
-
-        <div className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const active = pathname === item.href;
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 group ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 text-cyan-400 border-l-4 border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.1)]' 
+                className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all ${
+                  active
+                    ? 'bg-cyan-500/10 text-cyan-400 border-l-4 border-cyan-400'
                     : 'text-gray-400 hover:text-gray-100 hover:bg-white/5 border-l-4 border-transparent'
                 }`}
               >
-                <Icon className={`h-5 w-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? 'text-cyan-400' : 'text-gray-400 group-hover:text-gray-200'}`} />
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm">{item.name}</span>
-                </div>
+                <Icon className="h-5 w-5" />
+                <span className="font-medium text-sm">{item.name}</span>
               </Link>
             );
           })}
-        </div>
-
-        {/* PROFILE SUMMARY & LOGOUT IN SIDEBAR BOTTOM */}
-        <div className="p-4 border-t border-[rgba(255,255,255,0.06)] bg-white/2 space-y-3">
-          {profile && (
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-md">
-                  {profile.name ? profile.name[0].toUpperCase() : 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate text-gray-200">{profile.name}</p>
-                  <div className="flex items-center gap-1 text-[11px] text-cyan-400 capitalize">
-                    <Target className="h-3 w-3" />
-                    <span className="truncate">{profile.goal || 'No Goal'}</span>
-                  </div>
-                </div>
-              </div>
-              {profile.subscription_expires_at && (
-                <div className="text-[10px] text-gray-400 bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/5 flex items-center justify-between gap-1">
-                  <span className="text-cyan-400 font-bold shrink-0">Sub Expiry:</span>
-                  <span className="truncate font-mono text-gray-300">
-                    {new Date(profile.subscription_expires_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
-                  </span>
-                </div>
-              )}
+        </nav>
+        <div className="p-4 border-t border-white/5 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white">
+              {displayName[0]?.toUpperCase()}
             </div>
-          )}
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/5 border border-transparent hover:border-red-500/10 transition-all font-semibold text-xs tracking-wider uppercase"
-          >
-            <LogOut className="h-4.5 w-4.5 text-gray-500 hover:text-red-400" />
-            <span>Log Out</span>
-          </button>
+            <span className="text-sm font-semibold text-gray-200 truncate">{displayName}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={toggleTheme}
+              className="flex-1 flex items-center justify-center px-3 py-2 rounded-xl text-gray-400 hover:bg-white/5"
+              title="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={() => signOut({ redirectUrl: '/' })}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-500/5 text-xs font-semibold"
+            >
+              <LogOut className="h-4 w-4" /> Log out
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* MOBILE HEADER */}
-      <header className="md:hidden flex items-center justify-between px-5 py-2 glass-panel border-b border-[rgba(255,255,255,0.06)] sticky top-0 z-30">
-        <Link href="/" className="flex items-center gap-2">
-          <img src="/logo.png" alt="FitCore AI" className="h-12 w-auto object-contain" />
-        </Link>
-        
-        <div className="flex items-center gap-3.5">
-          {profile && (
-            <Link href="/profile" className="h-8 w-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
-              {profile.name ? profile.name[0].toUpperCase() : 'U'}
-            </Link>
-          )}
-          
-          <button 
-            onClick={handleLogout}
-            className="p-2 bg-white/5 hover:bg-red-500/10 text-gray-400 hover:text-red-400 border border-white/5 hover:border-red-500/20 rounded-lg transition-all"
-            title="Log Out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 md:pl-64 min-h-screen flex flex-col pb-20 md:pb-6">
-        <div className="flex-1 max-w-5xl w-full mx-auto px-4 md:px-8 py-6 md:py-8">
-          {children}
-        </div>
+      <main className="flex-1 md:pl-64 min-h-screen pb-20 md:pb-6">
+        <div className="max-w-5xl w-full mx-auto px-4 md:px-8 py-6">{children}</div>
       </main>
 
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-[rgba(255,255,255,0.08)] py-2.5 px-2 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgb(0,0,0,0.4)]">
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-white/8 py-2.5 px-2 flex justify-around items-center z-30">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const active = pathname === item.href;
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-300 ${
-                isActive 
-                  ? 'text-cyan-400 font-semibold' 
-                  : 'text-gray-400 hover:text-gray-200'
+              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl ${
+                active ? 'text-cyan-400' : 'text-gray-400'
               }`}
             >
-              <Icon className={`h-5 w-5 ${isActive ? 'text-cyan-400 scale-110 drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'text-gray-400'}`} />
-              <span className="text-[10px] tracking-tight">{item.name === 'AI Coach' ? 'Coach' : item.name}</span>
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium">{item.name}</span>
             </Link>
           );
         })}
       </nav>
-      
-      {/* FLOATING PREFERENCES SWITCHER AT BOTTOM RIGHT */}
-      <div className="fixed bottom-20 md:bottom-6 right-6 z-40 flex items-center gap-2">
-        <button
-          onClick={toggleTheme}
-          className="flex items-center justify-center h-10 w-10 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 shadow-lg hover:scale-105 transition-all"
-          title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-yellow-400 animate-spin-slow" /> : <Moon className="h-4.5 w-4.5 text-purple-400" />}
-        </button>
-
-        <button
-          onClick={toggleLanguage}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-full glass-panel border border-cyan-500/20 hover:border-cyan-400/50 hover:bg-[#0b0e14]/90 text-cyan-400 font-semibold text-xs tracking-wider shadow-lg hover:scale-105 transition-all"
-        >
-          <Globe className="h-4 w-4 text-cyan-400" />
-          <span>{language === 'english' ? 'English' : 'Hinglish'}</span>
-        </button>
-      </div>
-      
     </div>
-
   );
 }
