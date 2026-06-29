@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { callAI } from '@/lib/ai';
 
+interface RecipeData {
+  recipeName: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  prep_time_minutes: number;
+  instructions: string[];
+}
+
 export async function POST(request: Request) {
   try {
     const { ingredients, targetGoal, language } = await request.json();
@@ -18,20 +28,20 @@ export async function POST(request: Request) {
 
     const rawResponse = await callAI(prompt, 'json');
     
-    let recipeData;
+    let recipeData: RecipeData;
     try {
       const sanitized = rawResponse.replace(/```json|```/g, '').trim();
-      recipeData = JSON.parse(sanitized);
-    } catch (parseError) {
+      recipeData = JSON.parse(sanitized) as RecipeData;
+    } catch {
       console.warn("JSON parsing for recipe failed, recovering on raw:", rawResponse);
       try {
         const jsonMatch = rawResponse.match(/\{\s*[\s\S]*\s*\}/);
         if (jsonMatch) {
-          recipeData = JSON.parse(jsonMatch[0]);
+          recipeData = JSON.parse(jsonMatch[0]) as RecipeData;
         } else {
           throw new Error("Could not extract recipe object");
         }
-      } catch (nestedError) {
+      } catch {
         return NextResponse.json({ 
           error: 'Failed to generate perfectly formatted recipe JSON from model. Please try again.',
           raw: rawResponse 
@@ -40,8 +50,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ recipe: recipeData });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Fridge Recipe API route failed:", error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

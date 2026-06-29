@@ -4,7 +4,20 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUser, useClerk } from '@clerk/nextjs';
-import { Home, Dumbbell, Utensils, LineChart, MessageSquare, User, LogOut, Sun, Moon, Trophy } from 'lucide-react';
+import {
+  BookOpen,
+  Dumbbell,
+  Home,
+  LayoutDashboard,
+  LineChart,
+  LogOut,
+  MessageSquare,
+  Moon,
+  Sun,
+  Trophy,
+  User,
+  Utensils,
+} from 'lucide-react';
 
 interface NavItem {
   name: string;
@@ -13,8 +26,10 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Today', href: '/today', icon: Home },
   { name: 'Workouts', href: '/workout', icon: Dumbbell },
+  { name: 'Exercises', href: '/exercises', icon: BookOpen },
   { name: 'Diet', href: '/diet', icon: Utensils },
   { name: 'Progress', href: '/progress', icon: LineChart },
   { name: 'Awards', href: '/achievements', icon: Trophy },
@@ -141,7 +156,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       </main>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-white/8 py-2.5 px-2 flex justify-around items-center z-30">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-white/8 py-2.5 px-2 flex items-center gap-1 overflow-x-auto z-30">
         {NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -149,7 +164,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl ${
+              className={`flex min-w-[64px] flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl ${
                 active ? 'text-cyan-400' : 'text-gray-400'
               }`}
             >

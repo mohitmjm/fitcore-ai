@@ -100,6 +100,23 @@ export async function selectSupabaseRow<T extends SupabaseRow>(
   return rows[0] ?? null;
 }
 
+export async function selectSupabaseRows<T extends SupabaseRow>(
+  table: string,
+  filters: Record<string, SupabasePrimitive> = {},
+  select = '*',
+  options: { limit?: number; order?: string } = {},
+): Promise<T[]> {
+  const params: Record<string, string> = { select };
+  if (options.limit) params.limit = String(options.limit);
+  if (options.order) params.order = options.order;
+
+  for (const [key, value] of Object.entries(filters)) {
+    params[key] = `eq.${String(value)}`;
+  }
+
+  return requestRows<T>(table, { method: 'GET' }, params);
+}
+
 export async function upsertSupabaseRow<T extends SupabaseRow>(
   table: string,
   row: SupabaseRow,
