@@ -3,13 +3,17 @@ import { callAI } from '@/lib/ai';
 
 export async function POST(request: Request) {
   try {
-    const { ingredients, targetGoal, language } = await request.json();
+    const { ingredients, targetGoal, language } = (await request.json()) as {
+      ingredients?: string;
+      targetGoal?: string;
+      language?: string;
+    };
     
     if (!ingredients) {
       return NextResponse.json({ error: 'Missing ingredients list' }, { status: 400 });
     }
 
-    let languageDirective = "";
+    let languageDirective = '';
     if (language === 'hinglish') {
       languageDirective = " Crucial Requirement: All recipe instructions (the 'instructions' array field in the JSON) must be written in Hinglish (Hindi words written in the English/Latin alphabet, for example: '1. Paneer ko small pieces me cut karein', '2. Pan me thoda ghee dal kar saute karein'). Keep the recipe name and ingredients labels clear.";
     }
@@ -18,20 +22,20 @@ export async function POST(request: Request) {
 
     const rawResponse = await callAI(prompt, 'json');
     
-    let recipeData;
+    let recipeData: unknown;
     try {
       const sanitized = rawResponse.replace(/```json|```/g, '').trim();
       recipeData = JSON.parse(sanitized);
     } catch (parseError) {
-      console.warn("JSON parsing for recipe failed, recovering on raw:", rawResponse);
+      console.warn('JSON parsing for recipe failed, recovering on raw:', { parseError, rawResponse });
       try {
         const jsonMatch = rawResponse.match(/\{\s*[\s\S]*\s*\}/);
         if (jsonMatch) {
           recipeData = JSON.parse(jsonMatch[0]);
         } else {
-          throw new Error("Could not extract recipe object");
+          throw new Error('Could not extract recipe object');
         }
-      } catch (nestedError) {
+      } catch {
         return NextResponse.json({ 
           error: 'Failed to generate perfectly formatted recipe JSON from model. Please try again.',
           raw: rawResponse 
@@ -40,8 +44,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ recipe: recipeData });
-  } catch (error: any) {
-    console.error("Fridge Recipe API route failed:", error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  } catch (error) {
+    console.error('Fridge Recipe API route failed:', error);
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
