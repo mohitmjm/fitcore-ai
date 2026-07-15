@@ -2,11 +2,9 @@
 
 import { usePathname } from 'next/navigation';
 import {
-  SignedIn,
   SignedOut,
   SignInButton,
   SignUpButton,
-  UserButton,
 } from '@clerk/nextjs';
 
 /**
@@ -45,9 +43,6 @@ export default function ClerkAuthControls() {
           </button>
         </SignUpButton>
       </SignedOut>
-      <SignedIn>
-        <UserButton afterSignOutUrl="/" />
-      </SignedIn>
     </div>
   );
 }

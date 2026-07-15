@@ -15,6 +15,7 @@ export default function robots(): MetadataRoute.Robots {
           '/api/',
           '/today',
           '/workout',
+          '/exercises',
           '/diet',
           '/progress',
           '/achievements',

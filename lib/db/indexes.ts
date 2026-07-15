@@ -30,6 +30,8 @@ export async function ensureIndexes(db: Db): Promise<void> {
     // Progress logs + photos (sorted by recency).
     db.collection('progress_logs').createIndex({ clerkUserId: 1, recordedDate: -1 }, { name: 'user_recent' }),
     db.collection('progress_photos').createIndex({ clerkUserId: 1, takenAt: -1 }, { name: 'user_recent' }),
+    db.collection('saved_exercises').createIndex({ clerkUserId: 1, exerciseId: 1 }, { name: 'user_exercise' }),
+    db.collection('workout_drafts').createIndex({ clerkUserId: 1, target: 1, targetName: 1 }, { name: 'user_target' }),
     // WhatsApp / channel identity resolution.
     db.collection('channel_contacts').createIndex({ channel: 1, externalId: 1 }, { name: 'channel_external' }),
   ]);

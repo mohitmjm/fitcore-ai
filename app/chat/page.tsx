@@ -31,6 +31,7 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const promptHandledRef = useRef(false);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
@@ -47,6 +48,13 @@ export default function ChatPage() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  useEffect(() => {
+    if (promptHandledRef.current) return;
+    const prompt = new URLSearchParams(window.location.search).get('prompt');
+    if (prompt) setInputText(prompt);
+    promptHandledRef.current = true;
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
