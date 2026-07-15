@@ -1,226 +1,139 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Dumbbell, CheckCircle2, Clock, Info, RotateCw, Sparkles, Award } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, ChevronRight, Dumbbell, Gauge, ListRestart, Pause, Play, Plus, RotateCw, SkipForward, Sparkles, TimerReset, Trophy, X } from 'lucide-react';
+import MovementDemo from '@/components/exercises/MovementDemo';
+import { EXERCISES } from '@/lib/exercises/catalog';
+import type { Exercise } from '@/lib/exercises/types';
 
-interface PlanExercise {
-  name: string;
-  sets: number;
-  reps: string | number;
-  restSeconds: number;
-  muscleGroup: string;
-  tip: string;
-}
-interface PlanDay {
-  day: string;
-  focus?: string;
-  exercises: PlanExercise[];
-}
-interface WorkoutPlan {
-  days: PlanDay[];
-  mode: string;
-  generatedBy: string;
-  weekOf: string;
+interface PlanExercise { name: string; sets: number; reps: string | number; restSeconds: number; muscleGroup: string; tip: string; slug?: string; weightKg?: number }
+interface PlanDay { day: string; focus?: string; exercises: PlanExercise[] }
+interface WorkoutPlan { days: PlanDay[]; mode: string; generatedBy: string; weekOf: string }
+interface DraftExercise { exerciseId: string; slug: string; name: string; sets: number; reps: string; weightKg?: number; restSeconds: number; notes?: string }
+interface SetLog { reps: string; weight: string; done: boolean }
+
+function demoFor(exercise: PlanExercise): Pick<Exercise, 'name' | 'demoStyle'> {
+  const match = EXERCISES.find((item) => item.slug === exercise.slug || item.name.toLowerCase() === exercise.name.toLowerCase());
+  if (match) return match;
+  const group = exercise.muscleGroup.toLowerCase();
+  const demoStyle: Exercise['demoStyle'] = group.includes('leg') || group.includes('quad') ? 'squat' : group.includes('back') ? 'pull' : group.includes('core') ? 'core' : 'push';
+  return { name: exercise.name, demoStyle };
 }
 
 export default function WorkoutPage() {
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
+  const [draft, setDraft] = useState<DraftExercise[]>([]);
   const [completed, setCompleted] = useState<string[]>([]);
   const [today, setToday] = useState('');
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [active, setActive] = useState(false);
+  const [exerciseIndex, setExerciseIndex] = useState(0);
+  const [setIndex, setSetIndex] = useState(0);
+  const [setLogs, setSetLogs] = useState<Record<string, SetLog[]>>({});
+  const [restSeconds, setRestSeconds] = useState(0);
+  const [restPaused, setRestPaused] = useState(false);
+  const [toast, setToast] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/v1/plan');
-      if (!res.ok) return;
-      const json = (await res.json()) as {
-        data?: { plan: WorkoutPlan | null; completions: string[]; today: string };
-      };
-      setPlan(json.data?.plan ?? null);
-      setCompleted(json.data?.completions ?? []);
-      setToday(json.data?.today ?? new Date().toISOString().slice(0, 10));
-    } finally {
-      setLoaded(true);
-    }
+      const [planRes, draftRes] = await Promise.all([fetch('/api/v1/plan'), fetch('/api/v1/workout-builder')]);
+      const planJson = (await planRes.json()) as { data?: { plan: WorkoutPlan | null; completions: string[]; today: string } };
+      const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: DraftExercise[] } } };
+      setPlan(planJson.data?.plan ?? null); setCompleted(planJson.data?.completions ?? []); setToday(planJson.data?.today ?? new Date().toISOString().slice(0,10)); setDraft(draftJson.data?.workout?.exercises ?? []);
+    } finally { setLoaded(true); }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  async function toggleExercise(name: string, done: boolean) {
-    // Optimistic update.
-    setCompleted((prev) => (done ? [...prev, name] : prev.filter((n) => n !== name)));
-    await fetch('/api/v1/plan', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ exerciseName: name, date: today, done }),
-    });
+  const selectedDay = plan?.days[selectedDayIndex] ?? plan?.days[0];
+  const exercises = useMemo<PlanExercise[]>(() => {
+    const base = selectedDay?.exercises ?? [];
+    if (selectedDayIndex !== 0) return base;
+    return [...base, ...draft.map((item) => ({ name: item.name, sets: item.sets, reps: item.reps, restSeconds: item.restSeconds, muscleGroup: 'Custom', tip: item.notes ?? '', slug: item.slug, weightKg: item.weightKg }))];
+  }, [draft, selectedDay, selectedDayIndex]);
+  const current = exercises[exerciseIndex];
+  const completedCount = exercises.filter((item) => completed.includes(item.name)).length;
+  const progressPercent = exercises.length ? Math.round((completedCount / exercises.length) * 100) : 0;
+
+  useEffect(() => {
+    if (!current || setLogs[current.name]) return;
+    setSetLogs((logs) => ({ ...logs, [current.name]: Array.from({ length: current.sets }, () => ({ reps: String(current.reps), weight: current.weightKg ? String(current.weightKg) : '', done: false })) }));
+  }, [current, setLogs]);
+
+  useEffect(() => {
+    if (!restSeconds || restPaused) return;
+    const timer = window.setInterval(() => setRestSeconds((value) => Math.max(0, value - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [restPaused, restSeconds]);
+
+  useEffect(() => {
+    if (!active || !('wakeLock' in navigator)) return;
+    let released = false;
+    let lock: { release: () => Promise<void> } | null = null;
+    (navigator as Navigator & { wakeLock: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> } }).wakeLock.request('screen').then((value) => { if (released) void value.release(); else lock = value; }).catch(() => {});
+    return () => { released = true; void lock?.release(); };
+  }, [active]);
+
+  async function setCompletion(name: string, done: boolean) {
+    setCompleted((items) => done ? [...new Set([...items, name])] : items.filter((item) => item !== name));
+    await fetch('/api/v1/plan', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ exerciseName: name, date: today, done }) });
   }
 
-  async function regenerate() {
-    setRegenerating(true);
-    try {
-      await fetch('/api/v1/plan', { method: 'POST' });
-      setSelectedDayIndex(0);
-      await load();
-    } finally {
-      setRegenerating(false);
+  async function regenerate() { setRegenerating(true); try { await fetch('/api/v1/plan', { method: 'POST' }); setSelectedDayIndex(0); await load(); } finally { setRegenerating(false); } }
+  function startSession() { if (!exercises.length) return; setActive(true); setExerciseIndex(0); setSetIndex(0); }
+  function showMessage(message: string) { setToast(message); window.setTimeout(() => setToast(''), 2000); }
+
+  async function completeSet() {
+    if (!current) return;
+    const logs = setLogs[current.name] ?? [];
+    const nextLogs = logs.map((log, index) => index === setIndex ? { ...log, done: true } : log);
+    setSetLogs((all) => ({ ...all, [current.name]: nextLogs }));
+    const lastSet = setIndex >= current.sets - 1;
+    if (lastSet) {
+      await setCompletion(current.name, true);
+      showMessage(`${current.name} complete`);
+      if (exerciseIndex < exercises.length - 1) { setExerciseIndex((index) => index + 1); setSetIndex(0); }
+      else setActive(false);
+    } else {
+      setSetIndex((index) => index + 1); setRestSeconds(current.restSeconds); setRestPaused(false);
     }
   }
 
-  if (!loaded) return <div className="text-center py-10 text-gray-400">Loading your plan…</div>;
+  if (!loaded) return <div className="workout-loading"><div className="skeleton-block" /><div className="skeleton-block" /></div>;
+  if (!plan || plan.days.length === 0) return <div className="state-panel workout-empty"><span><Dumbbell /></span><strong>No workout plan yet</strong><p>Complete your profile so Fitcore can build a plan around your goal, experience, and equipment.</p><Link href="/profile">Set up profile <ArrowRight /></Link></div>;
 
-  if (!plan || plan.days.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 animate-[fadeIn_0.4s_ease-out]">
-        <div className="h-16 w-16 bg-cyan-500/10 border border-cyan-500/20 rounded-full flex items-center justify-center shadow-lg">
-          <Dumbbell className="h-8 w-8 text-cyan-400" />
-        </div>
-        <div className="max-w-md space-y-2">
-          <h2 className="text-2xl font-bold text-white">No workout plan yet</h2>
-          <p className="text-gray-400 text-sm">Set your goal, experience, and equipment to generate a plan.</p>
-        </div>
-        <Link
-          href="/profile"
-          className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white rounded-xl text-sm font-semibold hover:scale-[1.02] transition-all flex items-center gap-2"
-        >
-          <Sparkles className="h-4 w-4" />
-          Set up profile &amp; generate plan
-        </Link>
-      </div>
-    );
+  if (active && current) {
+    const logs = setLogs[current.name] ?? [];
+    const currentLog = logs[setIndex] ?? { reps: String(current.reps), weight: current.weightKg ? String(current.weightKg) : '', done: false };
+    const overallPosition = Math.round(((exerciseIndex + (setIndex + 1) / current.sets) / exercises.length) * 100);
+    return <div className="active-workout-shell">
+      <header className="active-workout-header"><button type="button" onClick={() => setActive(false)}><X /></button><div><span>Active workout</span><strong>{selectedDay?.focus ?? selectedDay?.day}</strong></div><small>{exerciseIndex + 1}/{exercises.length}</small></header>
+      <div className="active-progress"><i style={{ width: `${overallPosition}%` }} /></div>
+      <main className="active-workout-grid">
+        <section className="active-demo"><MovementDemo exercise={demoFor(current)} /><div className="now-playing"><span><i />Now training</span><strong>{current.muscleGroup}</strong></div></section>
+        <section className="active-controls">
+          <div className="exercise-counter"><span>Exercise {exerciseIndex + 1} of {exercises.length}</span><button type="button" onClick={() => { setExerciseIndex((index) => Math.min(exercises.length - 1, index + 1)); setSetIndex(0); }}>Skip <SkipForward /></button></div>
+          <h1>{current.name}</h1>
+          {current.tip && <p className="active-tip"><Sparkles />{current.tip}</p>}
+          <div className="set-chip-row">{Array.from({ length: current.sets }, (_, index) => <span key={index} className={logs[index]?.done ? 'done' : index === setIndex ? 'active' : ''}>{logs[index]?.done ? <Check /> : index + 1}</span>)}</div>
+          <div className="current-set-card"><div className="set-card-title"><span>Set {setIndex + 1}</span><small>{current.sets} total sets</small></div><div className="set-input-grid"><label><span>Reps</span><input inputMode="numeric" value={currentLog.reps} onChange={(event) => setSetLogs((all) => ({ ...all, [current.name]: logs.map((log,index) => index === setIndex ? { ...log, reps: event.target.value } : log) }))} /></label><label><span>Weight (kg)</span><input inputMode="decimal" placeholder="Bodyweight" value={currentLog.weight} onChange={(event) => setSetLogs((all) => ({ ...all, [current.name]: logs.map((log,index) => index === setIndex ? { ...log, weight: event.target.value } : log) }))} /></label></div><button type="button" className="complete-set-button" onClick={completeSet}><CheckCircle2 />{setIndex === current.sets - 1 ? 'Complete exercise' : 'Complete set'}<ArrowRight /></button></div>
+          <div className="previous-performance"><Gauge /><div><small>Previous performance</small><strong>No set history yet</strong></div><span>First logged session</span></div>
+          <div className="active-secondary-actions"><Link href={`/exercises?muscle=${encodeURIComponent(current.muscleGroup.toLowerCase())}`}><ListRestart />Replace exercise</Link><button type="button" onClick={() => setRestSeconds(current.restSeconds)}><TimerReset />Start rest</button></div>
+        </section>
+      </main>
+      {restSeconds > 0 && <aside className="rest-overlay"><div className="rest-timer"><span>Rest</span><strong>{Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2,'0')}</strong><small>Next: set {Math.min(setIndex + 1, current.sets)} of {current.sets}</small></div><div className="rest-actions"><button type="button" onClick={() => setRestPaused((value) => !value)}>{restPaused ? <Play /> : <Pause />}{restPaused ? 'Resume' : 'Pause'}</button><button type="button" className="skip-rest" onClick={() => setRestSeconds(0)}>Skip rest <ArrowRight /></button></div></aside>}
+      {toast && <div className="app-toast"><Check />{toast}</div>}
+    </div>;
   }
 
-  const selectedDay = plan.days[selectedDayIndex] ?? plan.days[0];
-  const exercises = selectedDay?.exercises ?? [];
-  const completedCount = exercises.filter((ex) => completed.includes(ex.name)).length;
-  const progressPercent = exercises.length > 0 ? Math.round((completedCount / exercises.length) * 100) : 0;
-
-  return (
-    <div className="space-y-8 animate-[fadeIn_0.4s_ease-out]">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-            <Dumbbell className="h-8 w-8 text-cyan-400" />
-            Training{' '}
-            <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">Workout Plan</span>
-          </h1>
-          <p className="text-gray-400 mt-1.5 text-sm capitalize">
-            {plan.mode !== 'normal' ? `${plan.mode} mode • ` : ''}Week of {new Date(plan.weekOf).toLocaleDateString()}
-          </p>
-        </div>
-
-        <button
-          onClick={regenerate}
-          disabled={regenerating}
-          className="px-4 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 rounded-xl text-xs font-semibold text-gray-200 transition-all flex items-center gap-2 disabled:opacity-50"
-        >
-          <RotateCw className={`h-3.5 w-3.5 ${regenerating ? 'animate-spin' : ''}`} />
-          {regenerating ? 'Regenerating…' : 'Regenerate Plan'}
-        </button>
-      </div>
-
-      <div className="flex gap-2 pb-2 overflow-x-auto border-b border-[rgba(255,255,255,0.06)]">
-        {plan.days.map((dayItem, index) => (
-          <button
-            key={index}
-            onClick={() => setSelectedDayIndex(index)}
-            className={`px-5 py-3 rounded-xl border text-sm font-semibold whitespace-nowrap transition-all ${
-              selectedDayIndex === index
-                ? 'bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border-cyan-400 text-cyan-400 shadow-md'
-                : 'bg-white/2 border-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5'
-            }`}
-          >
-            {dayItem.focus ? `${dayItem.focus}` : `Day ${index + 1}`}
-          </button>
-        ))}
-      </div>
-
-      <div className="glass-panel rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center gap-5 justify-between">
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="h-12 w-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-            <CheckCircle2 className="h-6 w-6 text-cyan-400" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-white">Today&apos;s Progress</h3>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Completed {completedCount} of {exercises.length} exercises
-            </p>
-          </div>
-        </div>
-        <div className="w-full md:w-80 flex items-center gap-3">
-          <div className="flex-1 h-3.5 bg-[#0b0e14] rounded-full border border-white/5 overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <span className="text-sm font-bold text-cyan-400 shrink-0 w-8 text-right">{progressPercent}%</span>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {exercises.map((exercise, index) => {
-          const isCompleted = completed.includes(exercise.name);
-          return (
-            <div
-              key={index}
-              className={`glass-panel rounded-2xl p-5 md:p-6 transition-all duration-300 border ${
-                isCompleted ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-[rgba(255,255,255,0.06)] hover:border-cyan-500/20'
-              }`}
-            >
-              <div className="flex items-start gap-4">
-                <button
-                  onClick={() => toggleExercise(exercise.name, !isCompleted)}
-                  className={`mt-1 h-6 w-6 rounded-lg border flex items-center justify-center transition-all shrink-0 ${
-                    isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-white/20 hover:border-cyan-400 bg-white/2'
-                  }`}
-                >
-                  {isCompleted && <CheckCircle2 className="h-4 w-4 stroke-white" />}
-                </button>
-                <div className="space-y-1.5 flex-1">
-                  <h3 className={`text-base md:text-lg font-bold transition-all ${isCompleted ? 'text-gray-400 line-through' : 'text-white'}`}>
-                    {exercise.name}
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-3 text-xs">
-                    <span className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-full font-medium">
-                      {exercise.muscleGroup}
-                    </span>
-                    <span className="flex items-center gap-1 text-gray-400">
-                      <Dumbbell className="h-3 w-3" />
-                      {exercise.sets} × {exercise.reps}
-                    </span>
-                    <span className="flex items-center gap-1 text-gray-400">
-                      <Clock className="h-3 w-3" />
-                      {exercise.restSeconds}s rest
-                    </span>
-                  </div>
-                  {exercise.tip && (
-                    <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.04)] flex items-start gap-2 text-xs text-gray-400">
-                      <Info className="h-4 w-4 text-purple-400 shrink-0 mt-0.5" />
-                      <p className="leading-relaxed">
-                        <span className="font-semibold text-gray-300">Coach tip:</span> {exercise.tip}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {progressPercent === 100 && exercises.length > 0 && (
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-400/30 flex flex-col items-center justify-center text-center space-y-2 animate-[fadeIn_0.5s_ease-out]">
-          <Award className="h-10 w-10 text-emerald-400 animate-bounce" />
-          <h3 className="text-lg font-bold text-white">Day complete!</h3>
-          <p className="text-xs text-gray-300 max-w-sm">Nice work. Log your meals and water to lock in the results.</p>
-        </div>
-      )}
-    </div>
-  );
+  return <div className="page-stack workout-page">
+    <header className="workout-page-header"><div><span className="eyebrow">Living plan</span><h1>Workouts</h1><p>Week of {new Date(plan.weekOf).toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })} · {plan.generatedBy === 'ai' ? 'AI personalized' : 'Fitcore foundation plan'}</p></div><button type="button" className="button-secondary" onClick={regenerate} disabled={regenerating}><RotateCw className={regenerating ? 'animate-spin' : ''} />{regenerating ? 'Regenerating…' : 'Regenerate plan'}</button></header>
+    <div className="day-tabs">{plan.days.map((day,index) => <button type="button" key={`${day.day}-${index}`} className={selectedDayIndex === index ? 'active' : ''} onClick={() => setSelectedDayIndex(index)}><small>Day {index + 1}</small><strong>{day.focus ?? day.day}</strong>{selectedDayIndex === index && <i />}</button>)}</div>
+    <section className="workout-overview-hero"><div><span className="workout-day-icon"><Dumbbell /></span><div><span className="eyebrow">Selected session</span><h2>{selectedDay?.focus ?? selectedDay?.day}</h2><p>{exercises.length} exercises · approximately {Math.max(20, exercises.length * 7)} minutes{draft.length && selectedDayIndex === 0 ? ` · ${draft.length} custom` : ''}</p></div></div><div className="overview-progress"><span><small>Completion</small><strong>{completedCount}/{exercises.length}</strong></span><div><i style={{ width: `${progressPercent}%` }} /></div></div><button type="button" className="button-primary" onClick={startSession}><Play />Start workout</button></section>
+    <section className="workout-list-section"><div className="section-heading-row"><div><span className="eyebrow">Session order</span><h2>Exercises</h2></div><Link href="/exercises"><Plus />Add movement</Link></div><div className="workout-exercise-list">{exercises.map((exercise,index) => { const done = completed.includes(exercise.name); return <article key={`${exercise.name}-${index}`} className={done ? 'done' : ''}><button type="button" className="exercise-check" onClick={() => setCompletion(exercise.name,!done)} aria-label={done ? `Mark ${exercise.name} incomplete` : `Mark ${exercise.name} complete`}>{done && <Check />}</button><div className="exercise-order">{String(index + 1).padStart(2,'0')}</div><div className="exercise-list-copy"><strong>{exercise.name}</strong><span>{exercise.muscleGroup} · {exercise.sets} × {exercise.reps} · {exercise.restSeconds}s rest</span>{exercise.tip && <small>{exercise.tip}</small>}</div><button type="button" className="exercise-start" onClick={() => { setExerciseIndex(index); setSetIndex(0); setActive(true); }}><Play /><span>Start</span></button></article>; })}</div></section>
+    {progressPercent === 100 && exercises.length > 0 && <aside className="workout-complete-banner"><span><Trophy /></span><div><strong>Session complete</strong><p>Your plan and consistency score have been updated.</p></div><Link href="/progress">View progress <ChevronRight /></Link></aside>}
+  </div>;
 }

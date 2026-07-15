@@ -1,126 +1,24 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import type { ComponentType } from 'react';
-import {
-  Dumbbell,
-  Utensils,
-  Droplet,
-  Scale,
-  Sparkles,
-  RefreshCw,
-  HeartPulse,
-  Flame,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Moon,
-  Footprints,
-  Brain,
-  Activity,
-  Send,
-  Trophy,
-} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Activity, ArrowRight, Bot, Check, Clock3, Droplet, Dumbbell, Flame, Footprints, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils } from 'lucide-react';
 
-// ---- Local DTOs (never import server services into a client component) -----------------
-interface Exercise {
-  name: string;
-  sets: number;
-  reps: string | number;
-}
-interface Consistency {
-  currentStreak: number;
-  longestStreak: number;
-  activeToday: boolean;
-  weekPct: number;
-  monthPct: number;
-  trend: 'up' | 'flat' | 'down';
-  momentum: number;
-}
-interface TodayCard {
-  date: string;
-  mode: string;
-  greeting: string;
-  primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] };
-  why: string;
-  quickLogs: string[];
-  momentum: { label: string; level: number };
-  insight?: string;
-  consistency?: Consistency;
-}
-interface HabitState {
-  habit: string;
-  value: number;
-  goal: number;
-  unit: string;
-  label: string;
-  step: number;
-  done: boolean;
-}
-interface HabitDay {
-  date: string;
-  habits: HabitState[];
-}
-interface Gamification {
-  xp: number;
-  level: number;
-  levelTitle: string;
-  progressPct: number;
-}
-
+interface Exercise { name: string; sets: number; reps: string | number }
+interface Consistency { currentStreak: number; longestStreak: number; activeToday: boolean; weekPct: number; monthPct: number; trend: 'up' | 'flat' | 'down'; momentum: number }
+interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency }
+interface HabitState { habit: string; value: number; goal: number; unit: string; label: string; step: number; done: boolean }
+interface Gamification { xp: number; level: number; levelTitle: string; progressPct: number }
 type ViewState = 'loading' | 'card' | 'needsPlan' | 'auth' | 'error';
 
-const QUICK_LOG_META: Record<string, { icon: ComponentType<{ className?: string }>; label: string }> = {
-  workout: { icon: Dumbbell, label: 'Workout' },
-  meal: { icon: Utensils, label: 'Meal' },
-  water: { icon: Droplet, label: 'Water' },
-  weight: { icon: Scale, label: 'Weight' },
-};
+const HABIT_ICONS = { water: Droplet, sleep: Moon, steps: Footprints, meditation: Sparkles, stretch: Activity };
+const LOG_META = { workout: { icon: Dumbbell, label: 'Workout' }, meal: { icon: Utensils, label: 'Meal' }, water: { icon: Droplet, label: 'Water' }, weight: { icon: Scale, label: 'Weight' } };
 
-const HABIT_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  water: Droplet,
-  sleep: Moon,
-  steps: Footprints,
-  meditation: Brain,
-  stretch: Activity,
-};
-
-// ---- Consistency ring -------------------------------------------------------------------
-function Ring({ pct, size = 92 }: { pct: number; size?: number }) {
-  const r = size / 2 - 7;
-  const c = 2 * Math.PI * r;
-  const clamped = Math.min(100, Math.max(0, pct));
-  const offset = c - (clamped / 100) * c;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
-      <defs>
-        <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#22d3ee" />
-          <stop offset="100%" stopColor="#a855f7" />
-        </linearGradient>
-      </defs>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="url(#ringGrad)"
-        strokeWidth="7"
-        strokeLinecap="round"
-        strokeDasharray={c}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-      />
-    </svg>
-  );
-}
-
-function TrendIcon({ trend }: { trend: 'up' | 'flat' | 'down' }) {
-  if (trend === 'up') return <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />;
-  if (trend === 'down') return <TrendingDown className="h-3.5 w-3.5 text-amber-400" />;
-  return <Minus className="h-3.5 w-3.5 text-gray-400" />;
+function ProgressRing({ value, label }: { value: number; label: string }) {
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.min(100, Math.max(0, value)) / 100) * circumference;
+  return <div className="today-ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r={radius} /><circle className="value" cx="50" cy="50" r={radius} strokeDasharray={circumference} strokeDashoffset={offset} /></svg><div><strong>{value}%</strong><small>{label}</small></div></div>;
 }
 
 export default function TodayPage() {
@@ -128,389 +26,86 @@ export default function TodayPage() {
   const [card, setCard] = useState<TodayCard | null>(null);
   const [habits, setHabits] = useState<HabitState[]>([]);
   const [game, setGame] = useState<Gamification | null>(null);
-  const [showWhy, setShowWhy] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [draftCount, setDraftCount] = useState(0);
   const [goal, setGoal] = useState('muscle gain');
-  const [coachMsg, setCoachMsg] = useState('');
-  const [coachReply, setCoachReply] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [showWhy, setShowWhy] = useState(false);
   const [toast, setToast] = useState('');
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(''), 1600);
-  }, []);
-
-  const loadHabits = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/habits');
-      const json = (await res.json()) as { data?: HabitDay };
-      if (json.data?.habits) setHabits(json.data.habits);
-    } catch {
-      /* habits are non-critical for the Today render */
-    }
-  }, []);
-
-  const loadGame = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/gamification');
-      const json = (await res.json()) as { data?: Gamification };
-      if (json.data) setGame(json.data);
-    } catch {
-      /* gamification is non-critical for the Today render */
-    }
-  }, []);
-
-  const loadToday = useCallback(async () => {
+  const showToast = useCallback((message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2200); }, []);
+  const load = useCallback(async () => {
     setView('loading');
     try {
-      const res = await fetch('/api/v1/today');
-      if (res.status === 401) {
-        setView('auth');
-        return;
-      }
-      const json = (await res.json()) as {
-        data?: TodayCard | { needsPlan?: boolean };
-        error?: { message: string };
-      };
-      if (json.error || !json.data) {
-        setView('error');
-        return;
-      }
-      if ('needsPlan' in json.data && json.data.needsPlan) {
-        setView('needsPlan');
-        return;
-      }
-      setCard(json.data as TodayCard);
-      setView('card');
-      loadHabits();
-      loadGame();
-    } catch {
-      setView('error');
-    }
-  }, [loadHabits, loadGame]);
+      const [todayRes, habitsRes, gameRes, draftRes] = await Promise.all([
+        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'),
+      ]);
+      if (todayRes.status === 401) { setView('auth'); return; }
+      const todayJson = (await todayRes.json()) as { data?: TodayCard | { needsPlan?: boolean } };
+      if (!todayJson.data) { setView('error'); return; }
+      if ('needsPlan' in todayJson.data && todayJson.data.needsPlan) setView('needsPlan');
+      else { setCard(todayJson.data as TodayCard); setView('card'); }
+      const habitsJson = (await habitsRes.json()) as { data?: { habits?: HabitState[] } };
+      const gameJson = (await gameRes.json()) as { data?: Gamification };
+      const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: unknown[] } } };
+      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0);
+    } catch { setView('error'); }
+  }, []);
 
-  useEffect(() => {
-    loadToday();
-  }, [loadToday]);
+  useEffect(() => { load(); }, [load]);
 
   async function generatePlan() {
     setBusy(true);
-    await fetch('/api/v1/onboarding', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ goal, experience: 'beginner', equipment: ['bodyweight'], daysPerWeek: 3 }),
-    });
-    setBusy(false);
-    loadToday();
+    try { await fetch('/api/v1/onboarding', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ goal, experience: 'beginner', equipment: ['bodyweight'], daysPerWeek: 3 }) }); await load(); }
+    finally { setBusy(false); }
   }
 
   async function quickLog(type: string) {
-    showToast(`Logged ${type}`);
-    await fetch('/api/v1/logs', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type }),
-    });
-    loadToday();
+    showToast(`${type[0].toUpperCase()}${type.slice(1)} logged`);
+    await fetch('/api/v1/logs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type }) });
+    load();
   }
 
   async function tapHabit(habit: string) {
-    // optimistic bump
-    setHabits((prev) =>
-      prev.map((h) => (h.habit === habit ? { ...h, value: h.value + h.step, done: h.value + h.step >= h.goal } : h)),
-    );
-    try {
-      const res = await fetch('/api/v1/habits', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ habit, action: 'increment' }),
-      });
-      const json = (await res.json()) as { data?: HabitDay };
-      if (json.data?.habits) setHabits(json.data.habits);
-    } catch {
-      /* keep optimistic value */
-    }
-  }
-
-  async function askCoach() {
-    if (!coachMsg.trim()) return;
-    setBusy(true);
-    setCoachReply('');
-    try {
-      const res = await fetch('/api/v1/coach', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: coachMsg }),
-      });
-      const json = (await res.json()) as { data?: { reply: string }; error?: { message: string } };
-      setCoachReply(json.data?.reply ?? json.error?.message ?? 'No reply.');
-    } catch {
-      setCoachReply('Something went wrong.');
-    }
-    setBusy(false);
+    setHabits((current) => current.map((item) => item.habit === habit ? { ...item, value: item.value + item.step, done: item.value + item.step >= item.goal } : item));
+    const response = await fetch('/api/v1/habits', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ habit, action: 'increment' }) });
+    const json = (await response.json()) as { data?: { habits?: HabitState[] } };
+    if (json.data?.habits) setHabits(json.data.habits);
   }
 
   const c = card?.consistency;
-  const prettyDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const prettyDate = new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-8 space-y-6">
-      <header className="space-y-1">
-        <div className="flex items-center justify-between">
-          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold">{prettyDate}</p>
-          {game ? (
-            <span className="flex items-center gap-1 text-[10px] font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-1 rounded-full">
-              <Trophy className="h-3 w-3" /> Lv {game.level} · {game.levelTitle}
-            </span>
-          ) : (
-            <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">FitCore AI</span>
-          )}
-        </div>
-        <h1 className="text-2xl font-black text-white">
-          {view === 'card' && card ? card.greeting : 'Today'}
-        </h1>
-      </header>
+    <div className="page-stack today-page">
+      <header className="today-header"><div><span className="eyebrow">{prettyDate}</span><h1>{card?.greeting ?? 'Your training day'}</h1><p>One focused action at a time. Fitcore adapts the rest.</p></div>{game && <div className="level-pill"><Trophy /><span><small>Level {game.level}</small><strong>{game.levelTitle}</strong></span><i style={{ '--level-progress': `${game.progressPct}%` } as React.CSSProperties} /></div>}</header>
 
-      {view === 'loading' && (
-        <div className="space-y-3">
-          <div className="h-28 rounded-2xl bg-white/5 animate-pulse" />
-          <div className="h-40 rounded-2xl bg-white/5 animate-pulse" />
-        </div>
-      )}
+      {view === 'loading' && <div className="today-loading"><div className="skeleton-block" /><div className="skeleton-block" /><div className="skeleton-block" /></div>}
+      {view === 'error' && <div className="state-panel error-state"><strong>Today could not load</strong><p>Your data is safe. Check your connection and try again.</p><button type="button" onClick={load}><RefreshCw />Try again</button></div>}
+      {view === 'auth' && <div className="state-panel"><strong>Sign in to see your plan</strong><p>Your workouts and consistency data are tied to your Fitcore profile.</p><Link href="/sign-in">Sign in</Link></div>}
+      {view === 'needsPlan' && <section className="plan-setup-card"><span className="setup-icon"><Sparkles /></span><div><span className="eyebrow">First session</span><h2>Let’s build your starting plan.</h2><p>Choose your main goal. Fitcore will create a sensible beginner plan and adapt it as you log sessions.</p></div><label><span>Main goal</span><select value={goal} onChange={(event) => setGoal(event.target.value)}><option value="muscle gain">Build muscle</option><option value="weight loss">Lose fat</option><option value="endurance">Improve endurance</option><option value="general fitness">General fitness</option></select></label><button type="button" className="button-primary" onClick={generatePlan} disabled={busy}>{busy ? 'Building your plan…' : 'Generate my plan'}<ArrowRight /></button></section>}
 
-      {view === 'auth' && (
-        <div className="glass-panel rounded-2xl border border-white/10 p-6 text-center space-y-2">
-          <p className="text-white font-bold">Sign in to see your Today</p>
-          <p className="text-sm text-gray-400">Use the Sign up button (top-right) to create your account.</p>
-        </div>
-      )}
+      {view === 'card' && card && <>
+        <section className="today-hero-grid">
+          <article className="workout-hero-card">
+            <div className="workout-hero-top"><span><i />{card.mode === 'normal' ? 'Today’s primary session' : `${card.mode} mode`}</span><strong><Clock3 />{card.primaryAction.durationMin} min</strong></div>
+            <div className="workout-hero-title"><span><Dumbbell /></span><div><h2>{card.primaryAction.title}</h2><p>{card.primaryAction.exercises.length} movements planned{draftCount > 0 ? ` · ${draftCount} custom added` : ''}</p></div></div>
+            <div className="workout-preview-list">{card.primaryAction.exercises.slice(0, 4).map((exercise, index) => <div key={`${exercise.name}-${index}`}><span>{String(index + 1).padStart(2,'0')}</span><strong>{exercise.name}</strong><small>{exercise.sets} × {exercise.reps}</small></div>)}{card.primaryAction.exercises.length === 0 && <p className="recovery-copy">A lighter recovery action is scheduled today. Follow the session guidance and keep the effort comfortable.</p>}</div>
+            <div className="workout-hero-actions"><Link href="/workout" className="button-primary">Start session <ArrowRight /></Link><button type="button" className="button-secondary" onClick={() => setShowWhy((current) => !current)}>{showWhy ? 'Hide reason' : 'Why this workout?'}</button></div>
+            {showWhy && <p className="why-copy"><Sparkles />{card.why}</p>}
+          </article>
 
-      {view === 'error' && (
-        <div className="glass-panel rounded-2xl border border-red-500/20 p-6 text-sm text-red-300">
-          Couldn&apos;t load Today. Try refreshing.
-        </div>
-      )}
+          <aside className="consistency-card"><div className="consistency-title"><span className="eyebrow">Consistency</span><Flame /></div>{c ? <><div className="consistency-main"><ProgressRing value={c.monthPct} label="this month" /><div><strong>{c.currentStreak}</strong><span>day streak</span><small>Personal best: {c.longestStreak} days</small></div></div><div className="week-progress"><span><small>This week</small><strong>{c.weekPct}%</strong></span><div><i style={{ width: `${c.weekPct}%` }} /></div></div><p className="trend-copy">{c.activeToday ? 'You have already moved today.' : c.trend === 'up' ? 'Your rhythm is improving.' : c.trend === 'down' ? 'A short session can protect your rhythm.' : 'You are holding a steady rhythm.'}</p></> : <p className="empty-copy">Complete your first activity to start tracking consistency.</p>}</aside>
+        </section>
 
-      {view === 'needsPlan' && (
-        <div className="glass-panel rounded-2xl border border-white/10 p-6 space-y-4">
-          <div className="flex items-center gap-2 text-cyan-400">
-            <Sparkles className="h-5 w-5" />
-            <span className="font-bold">Let&apos;s build your first plan</span>
-          </div>
-          <p className="text-sm text-gray-400">Pick your main goal and I&apos;ll generate a starter plan in seconds.</p>
-          <select
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            className="w-full bg-[#0b0e14] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-cyan-500"
-          >
-            <option value="muscle gain">Build muscle</option>
-            <option value="weight loss">Lose fat</option>
-            <option value="endurance">Improve endurance</option>
-            <option value="general fitness">General fitness</option>
-          </select>
-          <button
-            onClick={generatePlan}
-            disabled={busy}
-            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-black text-sm rounded-xl disabled:opacity-60"
-          >
-            {busy ? 'Generating…' : 'Generate my plan'}
-          </button>
-        </div>
-      )}
+        {card.insight && <aside className="coach-insight"><span><Bot /></span><div><small>Fitcore AI recommendation</small><p>{card.insight}</p></div><Link href="/chat">Ask coach <ArrowRight /></Link></aside>}
 
-      {view === 'card' && card && (
-        <div className="space-y-5">
-          {/* Consistency hero — the North Star, front and center */}
-          {c && (
-            <div className="glass-panel rounded-2xl border border-white/10 p-5">
-              <div className="flex items-center gap-5">
-                <div className="relative flex items-center justify-center">
-                  <Ring pct={c.monthPct} />
-                  <div className="absolute flex flex-col items-center">
-                    <span className="flex items-center gap-1 text-2xl font-black text-white leading-none">
-                      <Flame className={`h-5 w-5 ${c.currentStreak > 0 ? 'text-orange-400' : 'text-gray-600'}`} />
-                      {c.currentStreak}
-                    </span>
-                    <span className="text-[9px] uppercase tracking-wider text-gray-400 mt-0.5">day streak</span>
-                  </div>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-400">This week</span>
-                    <span className="text-sm font-bold text-cyan-300">{c.weekPct}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full"
-                      style={{ width: `${c.weekPct}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs text-gray-400">This month</span>
-                    <span className="text-sm font-bold text-purple-300">{c.monthPct}%</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 pt-0.5 text-[11px] text-gray-400">
-                    <TrendIcon trend={c.trend} />
-                    <span>
-                      {c.trend === 'up' ? 'Trending up' : c.trend === 'down' ? 'Easing off' : 'Holding steady'} · best{' '}
-                      {c.longestStreak}d
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        <section className="today-secondary-grid">
+          <article className="habit-card"><div className="section-heading-row"><div><span className="eyebrow">Daily foundation</span><h2>Habits</h2></div><span className="habit-complete-count">{habits.filter((habit) => habit.done).length}/{habits.length || 0} complete</span></div>{habits.length ? <div className="habit-grid">{habits.map((habit) => { const Icon = HABIT_ICONS[habit.habit as keyof typeof HABIT_ICONS] ?? Activity; const pct = Math.min(100, Math.round((habit.value / habit.goal) * 100)); return <button type="button" key={habit.habit} className={habit.done ? 'done' : ''} onClick={() => tapHabit(habit.habit)}><span><Icon />{habit.done && <Check />}</span><strong>{habit.label}</strong><small>{habit.value}/{habit.goal} {habit.unit}</small><div><i style={{ width: `${pct}%` }} /></div></button>; })}</div> : <p className="empty-copy">Habit tracking will appear after your profile is ready.</p>}</article>
+          <article className="quick-log-card"><div><span className="eyebrow">Keep data useful</span><h2>Quick log</h2><p>Small updates make tomorrow’s recommendations smarter.</p></div><div className="quick-log-grid">{card.quickLogs.map((type) => { const meta = LOG_META[type as keyof typeof LOG_META]; if (!meta) return null; const Icon = meta.icon; return <button type="button" key={type} onClick={() => quickLog(type)}><span><Icon /></span><strong>{meta.label}</strong><Plus /></button>; })}</div><Link href="/progress">View all progress <ArrowRight /></Link></article>
+        </section>
+      </>}
 
-          {/* Coach Insight */}
-          {card.insight && (
-            <div className="rounded-2xl border border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-cyan-500/5 p-4 flex gap-3">
-              <Sparkles className="h-5 w-5 text-purple-300 shrink-0 mt-0.5" />
-              <p className="text-sm text-purple-50 leading-relaxed font-medium">{card.insight}</p>
-            </div>
-          )}
-
-          {/* Primary action — "what should I do right now?" */}
-          <div className="glass-panel rounded-2xl border border-cyan-500/20 p-5 space-y-4 shadow-[0_0_25px_rgba(6,182,212,0.08)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-widest text-purple-300 font-bold">
-                {card.mode === 'normal' ? 'Today’s focus' : `${card.mode} mode`}
-              </span>
-              <span className="text-xs text-gray-400">{card.primaryAction.durationMin} min</span>
-            </div>
-            <h2 className="text-xl font-black text-white flex items-center gap-2">
-              {card.primaryAction.kind === 'recovery' ? (
-                <HeartPulse className="h-5 w-5 text-emerald-400" />
-              ) : (
-                <Dumbbell className="h-5 w-5 text-cyan-400" />
-              )}
-              {card.primaryAction.title}
-            </h2>
-
-            {card.primaryAction.exercises.length > 0 && (
-              <ul className="space-y-1.5">
-                {card.primaryAction.exercises.map((ex, i) => (
-                  <li key={i} className="flex justify-between text-sm border-b border-white/5 pb-1.5">
-                    <span className="text-gray-200">{ex.name}</span>
-                    <span className="text-gray-400 font-mono text-xs">
-                      {ex.sets} × {ex.reps}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="flex items-center gap-3">
-              <a
-                href="/workout"
-                className="flex-1 text-center py-2.5 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-bold text-sm rounded-xl hover:scale-[1.01] transition-transform"
-              >
-                Start session
-              </a>
-              <button
-                onClick={() => setShowWhy((s) => !s)}
-                className="text-xs font-bold text-cyan-400 hover:text-cyan-300 px-2"
-              >
-                {showWhy ? 'Hide' : 'Why this?'}
-              </button>
-            </div>
-            {showWhy && <p className="text-sm text-gray-400 leading-relaxed">{card.why}</p>}
-          </div>
-
-          {/* Habits */}
-          {habits.length > 0 && (
-            <div className="glass-panel rounded-2xl border border-white/10 p-4 space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Daily habits</span>
-              <div className="grid grid-cols-5 gap-2">
-                {habits.map((h) => {
-                  const Icon = HABIT_ICONS[h.habit] ?? Activity;
-                  const pct = Math.min(100, Math.round((h.value / h.goal) * 100));
-                  return (
-                    <button
-                      key={h.habit}
-                      onClick={() => tapHabit(h.habit)}
-                      className={`flex flex-col items-center gap-1.5 py-2.5 rounded-xl border transition-all ${
-                        h.done
-                          ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
-                          : 'border-white/10 hover:border-cyan-400/40 text-gray-300 hover:text-cyan-300'
-                      }`}
-                      title={`${h.label}: ${h.value}/${h.goal} ${h.unit} (tap +${h.step})`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="text-[10px] font-semibold">{h.label}</span>
-                      <span className="text-[9px] text-gray-500">
-                        {h.value}/{h.goal}
-                      </span>
-                      <div className="h-1 w-8 rounded-full bg-white/10 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${h.done ? 'bg-emerald-400' : 'bg-cyan-400'}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Quick logs */}
-          <div className="grid grid-cols-4 gap-2">
-            {card.quickLogs.map((t) => {
-              const meta = QUICK_LOG_META[t];
-              if (!meta) return null;
-              const Icon = meta.icon;
-              return (
-                <button
-                  key={t}
-                  onClick={() => quickLog(t)}
-                  className="flex flex-col items-center gap-1.5 py-3 glass-panel rounded-xl border border-white/10 hover:border-cyan-400/40 text-gray-300 hover:text-cyan-300 transition-all"
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-[11px] font-semibold">{meta.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Coach */}
-          <div className="glass-panel rounded-2xl border border-white/10 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-purple-300">
-              <Sparkles className="h-4 w-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">Ask your coach</span>
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={coachMsg}
-                onChange={(e) => setCoachMsg(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && askCoach()}
-                placeholder="e.g. I only have 15 minutes today"
-                className="flex-1 bg-[#0b0e14] border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
-              />
-              <button
-                onClick={askCoach}
-                disabled={busy}
-                className="px-4 rounded-xl bg-purple-500 hover:bg-purple-400 text-white text-sm font-bold disabled:opacity-60 flex items-center gap-1"
-              >
-                {busy ? '…' : <Send className="h-4 w-4" />}
-              </button>
-            </div>
-            {coachReply && <p className="text-sm text-gray-300 leading-relaxed">{coachReply}</p>}
-          </div>
-
-          <button
-            onClick={loadToday}
-            className="w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-gray-300 py-2"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </button>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-cyan-500 text-black text-xs font-bold shadow-lg">
-          {toast} ✓
-        </div>
-      )}
+      {toast && <div className="app-toast" role="status"><Check />{toast}</div>}
     </div>
   );
 }

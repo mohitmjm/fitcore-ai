@@ -7,9 +7,10 @@ import { PlanService } from '@/lib/services/plan/plan.service';
 export const OnboardingInput = z.object({
   name: z.string().optional(),
   gender: z.enum(['male', 'female', 'other']).optional(),
+  age: z.number().int().min(13).max(100).optional(),
   dob: z.string().optional(),
-  heightCm: z.number().optional(),
-  weightKg: z.number().optional(),
+  heightCm: z.number().min(100).max(250).optional(),
+  weightKg: z.number().min(25).max(350).optional(),
   goal: z.string().optional(),
   activityLevel: z.string().optional(),
   experience: z.string().optional(),
@@ -28,13 +29,14 @@ export const OnboardingInput = z.object({
  */
 export async function completeOnboarding(ctx: AuthContext, raw: unknown) {
   const input = OnboardingInput.parse(raw);
+  const dob = input.dob ?? (input.age ? `${new Date().getUTCFullYear() - input.age}-01-01` : undefined);
 
   await UsersService.ensureExists(ctx.clerkUserId);
   await UsersService.updateProfile(
     ctx.clerkUserId,
     {
       gender: input.gender,
-      dob: input.dob,
+      dob,
       heightCm: input.heightCm,
       weightKg: input.weightKg,
       goal: input.goal,

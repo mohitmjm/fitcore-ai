@@ -70,15 +70,9 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
-  const { isLoaded, isSignedIn } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoaded && isSignedIn) router.replace('/today');
-  }, [isLoaded, isSignedIn, router]);
-
   return (
     <div className="relative overflow-hidden">
+      {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && <SignedInRedirect />}
       {/* ambient glows */}
       <div className="pointer-events-none absolute -top-40 -left-40 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
       <div className="pointer-events-none absolute top-20 -right-40 h-96 w-96 rounded-full bg-purple-500/10 blur-3xl" />
@@ -355,4 +349,13 @@ export default function LandingPage() {
       </div>
     </div>
   );
+}
+
+function SignedInRedirect() {
+  const { isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
+  useEffect(() => {
+    if (isLoaded && isSignedIn) router.replace('/today');
+  }, [isLoaded, isSignedIn, router]);
+  return null;
 }

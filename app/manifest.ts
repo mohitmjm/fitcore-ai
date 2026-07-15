@@ -11,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Your AI fitness coach that builds consistency.',
     start_url: '/today',
     display: 'standalone',
-    background_color: '#0b0e14',
-    theme_color: '#0b0e14',
+    background_color: '#0b0d0d',
+    theme_color: '#0b0d0d',
     icons: [
       { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },

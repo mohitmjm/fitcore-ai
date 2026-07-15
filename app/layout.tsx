@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import NavigationWrapper from "@/components/NavigationWrapper";
 import ClerkAuthControls from "@/components/ClerkAuthControls";
+import DevNavigationWrapper from "@/components/DevNavigationWrapper";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -55,7 +56,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0e14",
+  themeColor: "#0b0d0d",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -66,17 +67,21 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   return (
     <html lang="en" className={`${inter.variable} dark h-full antialiased`} suppressHydrationWarning>
       <body
         className="min-h-full bg-[var(--background)] text-[var(--foreground)] flex flex-col font-sans"
         suppressHydrationWarning
       >
-        {/* ClerkProvider must be inside <body> (Clerk Core 2+). */}
-        <ClerkProvider>
-          <ClerkAuthControls />
-          <NavigationWrapper>{children}</NavigationWrapper>
-        </ClerkProvider>
+        {clerkConfigured ? (
+          <ClerkProvider>
+            <ClerkAuthControls />
+            <NavigationWrapper>{children}</NavigationWrapper>
+          </ClerkProvider>
+        ) : (
+          <DevNavigationWrapper>{children}</DevNavigationWrapper>
+        )}
       </body>
     </html>
   );
