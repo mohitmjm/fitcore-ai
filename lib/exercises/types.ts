@@ -1,6 +1,8 @@
 export type MuscleId =
+  | 'neck'
   | 'chest'
   | 'upper-chest'
+  | 'lower-chest'
   | 'shoulders'
   | 'front-deltoids'
   | 'side-deltoids'
@@ -13,12 +15,14 @@ export type MuscleId =
   | 'obliques'
   | 'traps'
   | 'upper-back'
+  | 'middle-back'
   | 'lats'
   | 'lower-back'
   | 'glutes'
   | 'quadriceps'
   | 'hamstrings'
   | 'calves'
+  | 'tibialis'
   | 'hip-flexors'
   | 'adductors'
   | 'abductors';

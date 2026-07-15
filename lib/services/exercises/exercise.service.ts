@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { EXERCISES, EXERCISE_BY_SLUG } from '@/lib/exercises/catalog';
+import { expandMuscleTargets } from '@/lib/exercises/muscle-exercise-map';
 import type { Exercise, ExerciseCategory, ExerciseDifficulty, ExerciseLocation, MuscleId } from '@/lib/exercises/types';
 import { OwnedRepository, type OwnedDoc } from '@/lib/db/repository';
 import { Errors } from '@/lib/core/errors';
@@ -30,6 +31,7 @@ function includesLoose(values: string[], choices: string[]): boolean {
 export const ExerciseService = {
   list(filters: ExerciseFilters = {}): Exercise[] {
     const search = filters.search?.trim().toLowerCase();
+    const targetMuscles = filters.muscles?.length ? expandMuscleTargets(filters.muscles) : undefined;
     return EXERCISES.filter((exercise) => {
       if (
         search &&
@@ -39,8 +41,8 @@ export const ExerciseService = {
           .includes(search)
       ) return false;
       if (
-        filters.muscles?.length &&
-        !filters.muscles.some((muscle) =>
+        targetMuscles?.length &&
+        !targetMuscles.some((muscle) =>
           [...exercise.primaryMuscles, ...exercise.secondaryMuscles].includes(muscle),
         )
       ) return false;

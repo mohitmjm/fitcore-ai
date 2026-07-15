@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
@@ -81,8 +82,7 @@ export default function LandingPage() {
         {/* Nav */}
         <nav className="flex items-center justify-between py-5">
           <div className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="FitCore AI" className="h-12 w-auto object-contain" />
+            <Image src="/logo.png" alt="FitCore AI" width={48} height={48} className="h-12 w-auto object-contain" />
           </div>
           <div className="hidden sm:flex items-center gap-7 text-sm text-gray-300">
             <a href="#features" className="hover:text-white transition-colors">Features</a>

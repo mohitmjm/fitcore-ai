@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bookmark, BookmarkCheck, Dumbbell, Plus, ArrowUpRight } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Dumbbell, Plus, ArrowUpRight, Play } from 'lucide-react';
 import { MUSCLE_BY_ID } from '@/lib/exercises/muscles';
 import type { Exercise } from '@/lib/exercises/types';
 import MovementDemo from './MovementDemo';
@@ -12,19 +12,22 @@ export default function ExerciseCard({
   saving,
   onSave,
   onAdd,
+  onPlay,
 }: {
   exercise: Exercise;
   saved: boolean;
   saving?: boolean;
   onSave: () => void;
   onAdd: () => void;
+  onPlay?: (exercise: Exercise) => void;
 }) {
   return (
     <article className="exercise-card">
-      <Link href={`/exercises/${exercise.slug}`} className="exercise-card-media" aria-label={`View ${exercise.name}`}>
+      <button type="button" className="exercise-card-media" onClick={() => onPlay?.(exercise)} aria-label={`Play ${exercise.name} video`}>
         <MovementDemo exercise={exercise} compact />
         <span className="exercise-level">{exercise.difficulty}</span>
-      </Link>
+        <span className="exercise-card-play"><Play fill="currentColor" />Play</span>
+      </button>
       <div className="exercise-card-body">
         <div className="exercise-card-topline">
           <span>{MUSCLE_BY_ID[exercise.primaryMuscles[0]].label}</span>

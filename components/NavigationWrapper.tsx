@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useClerk, useUser } from '@clerk/nextjs';
@@ -97,8 +98,8 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     <div className="app-shell">
       <aside className="desktop-sidebar">
         <Link href="/today" className="app-brand" aria-label="Fitcore AI home">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" /><span><strong>FITCORE</strong><small>TRAIN SMARTER</small></span>
+          <Image src="/logo.png" width={44} height={44} alt="" />
+          <span><strong>FITCORE</strong><small>TRAIN SMARTER</small></span>
         </Link>
 
         <div className="sidebar-status">
@@ -129,8 +130,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
 
       <header className="mobile-app-header">
         <Link href="/today" className="mobile-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Fitcore AI" />
+          <Image src="/logo.png" width={40} height={40} alt="Fitcore AI" />
         </Link>
         <div className="mobile-header-actions"><span><Flame />Ready</span><Link href="/profile" aria-label="Open profile">{displayName[0]?.toUpperCase()}</Link></div>
       </header>
