@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES } from '@/lib/exercises/catalog';
+import { ANATOMICAL_REGIONS, BODY_SILHOUETTES } from '@/lib/exercises/anatomy';
 import { MUSCLES } from '@/lib/exercises/muscles';
 import { ExerciseService } from './exercise.service';
 
@@ -10,8 +11,13 @@ describe('exercise catalog', () => {
   });
 
   it('covers every selectable body-map muscle', () => {
-    const covered = new Set(EXERCISES.flatMap((item) => [...item.primaryMuscles, ...item.secondaryMuscles]));
-    expect(MUSCLES.filter((muscle) => !covered.has(muscle.id))).toEqual([]);
+    expect(MUSCLES.filter((muscle) => ExerciseService.list({ muscles: [muscle.id] }).length === 0)).toEqual([]);
+  });
+
+  it('ships front and back anatomy for both body types with mapped regions', () => {
+    expect(Object.keys(BODY_SILHOUETTES).sort()).toEqual(['female-back', 'female-front', 'male-back', 'male-front']);
+    const renderedRegionIds = Object.values(ANATOMICAL_REGIONS).flatMap((regions) => regions.map((region) => region.id));
+    expect(renderedRegionIds.filter((muscle) => ExerciseService.list({ muscles: [muscle] }).length === 0)).toEqual([]);
   });
 
   it('ships complete scannable exercise guidance', () => {

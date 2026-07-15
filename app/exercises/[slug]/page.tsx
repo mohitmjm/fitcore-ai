@@ -6,7 +6,8 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Bookmark, BookmarkCheck, Check, ChevronRight, Clock3, Dumbbell, HeartPulse, Info, Plus, ShieldAlert, Sparkles, Wind } from 'lucide-react';
 import AddToWorkoutSheet from '@/components/exercises/AddToWorkoutSheet';
 import ExerciseCard from '@/components/exercises/ExerciseCard';
-import MovementDemo from '@/components/exercises/MovementDemo';
+import ExerciseVideoPlayer from '@/components/exercises/ExerciseVideoPlayer';
+import ExerciseVideoSheet from '@/components/exercises/ExerciseVideoSheet';
 import { MUSCLE_BY_ID } from '@/lib/exercises/muscles';
 import type { Exercise } from '@/lib/exercises/types';
 
@@ -20,6 +21,7 @@ export default function ExerciseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [addExercise, setAddExercise] = useState<Exercise | null>(null);
+  const [watchExercise, setWatchExercise] = useState<Exercise | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
 
@@ -77,7 +79,7 @@ export default function ExerciseDetailPage() {
       <Link href="/exercises" className="back-link"><ArrowLeft />Body &amp; Exercises</Link>
 
       <section className="detail-hero-grid">
-        <div className="detail-demo-panel"><MovementDemo exercise={exercise} /><div className="demo-scrub"><span>Controlled tempo</span><div><i /></div><span>3 sec</span></div></div>
+        <div className="detail-demo-panel"><ExerciseVideoPlayer exercise={exercise} /><div className="demo-scrub"><span>Watch form cues</span><div><i /></div><span>On demand</span></div></div>
         <div className="detail-summary">
           <div className="detail-badges"><span>{exercise.difficulty}</span><span>{exercise.category}</span><span>{exercise.trainingType}</span></div>
           <h1>{exercise.name}</h1>
@@ -106,10 +108,11 @@ export default function ExerciseDetailPage() {
         </aside>
       </div>
 
-      {similar.length > 0 && <section className="similar-section"><div className="section-heading-row"><div><span className="eyebrow">Keep exploring</span><h2>Similar movements</h2></div><Link href={`/exercises?muscle=${exercise.primaryMuscles[0]}`}>View all <ChevronRight /></Link></div><div className="exercise-grid">{similar.map((item) => <ExerciseCard key={item.id} exercise={item} saved={savedIds.includes(item.id)} saving={savingId === item.id} onSave={() => toggleSaved(item)} onAdd={() => setAddExercise(item)} />)}</div></section>}
+      {similar.length > 0 && <section className="similar-section"><div className="section-heading-row"><div><span className="eyebrow">Keep exploring</span><h2>Similar movements</h2></div><Link href={`/exercises?muscle=${exercise.primaryMuscles[0]}`}>View all <ChevronRight /></Link></div><div className="exercise-grid">{similar.map((item) => <ExerciseCard key={item.id} exercise={item} saved={savedIds.includes(item.id)} saving={savingId === item.id} onSave={() => toggleSaved(item)} onAdd={() => setAddExercise(item)} onPlay={setWatchExercise} />)}</div></section>}
 
       <div className="mobile-detail-cta"><button type="button" className="button-secondary" onClick={() => toggleSaved(exercise)} aria-label={saved ? 'Unsave exercise' : 'Save exercise'}>{saved ? <BookmarkCheck /> : <Bookmark />}</button><button type="button" className="button-primary" onClick={() => setAddExercise(exercise)}><Plus />Add to workout</button></div>
       {addExercise && <AddToWorkoutSheet exercise={addExercise} onClose={() => setAddExercise(null)} onSuccess={showToast} />}
+      {watchExercise && <ExerciseVideoSheet exercise={watchExercise} onClose={() => setWatchExercise(null)} onAdd={setAddExercise} />}
       {toast && <div className="app-toast" role="status"><Check />{toast}</div>}
     </div>
   );

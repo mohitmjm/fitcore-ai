@@ -5,6 +5,7 @@ import { Check, ChevronDown, Filter, RotateCcw, Search, Sparkles, X } from 'luci
 import AddToWorkoutSheet from '@/components/exercises/AddToWorkoutSheet';
 import BodyMap from '@/components/exercises/BodyMap';
 import ExerciseCard from '@/components/exercises/ExerciseCard';
+import ExerciseVideoSheet from '@/components/exercises/ExerciseVideoSheet';
 import { EQUIPMENT_OPTIONS } from '@/lib/exercises/catalog';
 import { MUSCLES, MUSCLE_BY_ID } from '@/lib/exercises/muscles';
 import type { Exercise, ExerciseCategory, ExerciseDifficulty, MuscleId } from '@/lib/exercises/types';
@@ -72,6 +73,7 @@ export default function ExercisesPage() {
   const [view, setView] = useState<'front' | 'back'>('front');
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const [selectedMuscles, setSelectedMuscles] = useState<MuscleId[]>([]);
+  const [muscleSearch, setMuscleSearch] = useState('');
   const [search, setSearch] = useState('');
   const [equipment, setEquipment] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<ExerciseDifficulty[]>([]);
@@ -85,10 +87,16 @@ export default function ExercisesPage() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [addExercise, setAddExercise] = useState<Exercise | null>(null);
+  const [watchExercise, setWatchExercise] = useState<Exercise | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [toast, setToast] = useState('');
 
   const activeFilterCount = equipment.length + difficulty.length + categories.length + (location ? 1 : 0) + (trainingType ? 1 : 0);
+  const visibleMuscles = useMemo(() => {
+    const term = muscleSearch.trim().toLowerCase();
+    if (!term) return MUSCLES;
+    return MUSCLES.filter((muscle) => `${muscle.label} ${muscle.scientificName}`.toLowerCase().includes(term));
+  }, [muscleSearch]);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -148,6 +156,10 @@ export default function ExercisesPage() {
     setSelectedMuscles((current) => toggleValue(current, muscle));
   }
 
+  function selectMuscle(muscle: MuscleId) {
+    setSelectedMuscles([muscle]);
+  }
+
   function resetFilters() {
     setEquipment([]); setDifficulty([]); setCategories([]); setLocation(''); setTrainingType('');
   }
@@ -196,19 +208,21 @@ export default function ExercisesPage() {
             <div className="segmented-control" aria-label="Body type"><button type="button" className={gender === 'male' ? 'active' : ''} onClick={() => setGender('male')}>Male</button><button type="button" className={gender === 'female' ? 'active' : ''} onClick={() => setGender('female')}>Female</button></div>
             <div className="segmented-control" aria-label="Body view"><button type="button" className={view === 'front' ? 'active' : ''} onClick={() => setView('front')}>Front</button><button type="button" className={view === 'back' ? 'active' : ''} onClick={() => setView('back')}>Back</button></div>
           </div>
-          <BodyMap view={view} gender={gender} selected={selectedMuscles} onToggle={toggleMuscle} />
+          <BodyMap view={view} gender={gender} selected={selectedMuscles} onSelect={selectMuscle} />
         </div>
 
         <div className="muscle-list-panel">
-          <div className="panel-heading"><div><span className="eyebrow">Accessible selector</span><h2>Muscle groups</h2></div>{selectedMuscles.length > 0 && <button type="button" className="text-button" onClick={() => setSelectedMuscles([])}>Clear all</button>}</div>
-          <p className="panel-copy">Select one or combine several areas. Results update as you build your training focus.</p>
+          <div className="panel-heading"><div><span className="eyebrow">Accessible selector</span><h2>Muscle groups</h2></div>{selectedMuscles.length > 0 && <button type="button" className="text-button" onClick={() => setSelectedMuscles([])}>Clear selection</button>}</div>
+          <p className="panel-copy">Choose an exact region by name if you prefer not to use the body model. Exercise videos update immediately.</p>
+          <label className="muscle-search-field"><Search /><span className="sr-only">Search muscle groups</span><input type="search" value={muscleSearch} onChange={(event) => setMuscleSearch(event.target.value)} placeholder="Search muscles" />{muscleSearch && <button type="button" onClick={() => setMuscleSearch('')} aria-label="Clear muscle search"><X /></button>}</label>
           <div className="muscle-chip-grid">
-            {MUSCLES.map((muscle) => (
+            {visibleMuscles.map((muscle) => (
               <button type="button" key={muscle.id} className={selectedMuscles.includes(muscle.id) ? 'active' : ''} onClick={() => toggleMuscle(muscle.id)} aria-pressed={selectedMuscles.includes(muscle.id)}>
                 <span>{selectedMuscles.includes(muscle.id) && <Check />}</span><strong>{muscle.label}</strong><small>{muscle.scientificName}</small>
               </button>
             ))}
           </div>
+          {visibleMuscles.length === 0 && <p className="muscle-search-empty">No muscle group matches “{muscleSearch}”.</p>}
         </div>
       </section>
 
@@ -233,13 +247,14 @@ export default function ExercisesPage() {
             ) : exercises.length === 0 ? (
               <div className="state-panel empty-state"><strong>No exact matches</strong><p>Clear a filter or select a nearby muscle group to widen the results.</p><button type="button" onClick={() => { resetFilters(); setSelectedMuscles([]); setSearch(''); }}>Reset everything</button></div>
             ) : (
-              <div className="exercise-grid">{exercises.map((exercise) => <ExerciseCard key={exercise.id} exercise={exercise} saved={savedIds.includes(exercise.id)} saving={savingId === exercise.id} onSave={() => toggleSaved(exercise)} onAdd={() => setAddExercise(exercise)} />)}</div>
+            <div className="exercise-grid">{exercises.map((exercise) => <ExerciseCard key={exercise.id} exercise={exercise} saved={savedIds.includes(exercise.id)} saving={savingId === exercise.id} onSave={() => toggleSaved(exercise)} onAdd={() => setAddExercise(exercise)} onPlay={setWatchExercise} />)}</div>
             )}
           </div>
         </div>
       </section>
 
       {filtersOpen && <div className="mobile-filter-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setFiltersOpen(false)}><section className="mobile-filter-sheet" role="dialog" aria-modal="true" aria-label="Exercise filters"><div className="sheet-handle" /><div className="mobile-filter-head"><div><span className="eyebrow">Filters</span><h2>Refine exercises</h2></div><button type="button" onClick={() => setFiltersOpen(false)} aria-label="Close filters"><X /></button></div><FilterPanel {...filterProps} /><div className="mobile-filter-actions"><button type="button" className="button-secondary" onClick={resetFilters}>Reset</button><button type="button" className="button-primary" onClick={() => setFiltersOpen(false)}>Show {total} results</button></div></section></div>}
+      {watchExercise && <ExerciseVideoSheet exercise={watchExercise} onClose={() => setWatchExercise(null)} onAdd={setAddExercise} />}
       {addExercise && <AddToWorkoutSheet exercise={addExercise} onClose={() => setAddExercise(null)} onSuccess={showToast} />}
       {toast && <div className="app-toast" role="status"><Check />{toast}</div>}
     </div>
