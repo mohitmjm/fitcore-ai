@@ -1,4 +1,5 @@
 import type { CoachMode } from '@/lib/services/memory/types';
+import type { HabitState } from '@/lib/services/habits/types';
 
 export interface CheckinInput {
   energy?: 1 | 2 | 3 | 4 | 5;
@@ -28,6 +29,20 @@ export interface ConsistencySnapshot {
   momentum: number; // 1..5
 }
 
+export interface TodayGamificationSnapshot {
+  xp: number;
+  level: number;
+  levelTitle: string;
+  progressPct: number;
+}
+
+export interface TodaySharedSnapshot {
+  /** Initial habit state for Today. Dedicated habits endpoint remains the write path. */
+  habits: HabitState[];
+  /** Compact level chip data derived from the same signal read as consistency. */
+  gamification: TodayGamificationSnapshot;
+}
+
 export interface TodayCard {
   date: string;
   mode: CoachMode;
@@ -45,4 +60,9 @@ export interface TodayCard {
   insight?: string;
   /** Streak + consistency snapshot. Set by the service. */
   consistency?: ConsistencySnapshot;
+  /** Extra Today page data bundled to avoid client request fanout. */
+  habits?: HabitState[];
+  gamification?: TodayGamificationSnapshot;
 }
+
+export type TodayNeedsPlan = { needsPlan: true } & TodaySharedSnapshot;

@@ -25,11 +25,20 @@ export interface ConsistencySummary extends ConsistencyStats {
  * Progress, and the coach.
  */
 export const ConsistencyService = {
-  /** Distinct-ish list of activity dates (YYYY-MM-DD) from the most recent N signals. */
-  async getActivityDates(clerkUserId: string, limit = 500): Promise<string[]> {
+  /** Recent raw activity signals, sorted newest first. Lets composite endpoints reuse one read. */
+  async getActivitySignals(clerkUserId: string, limit = 500): Promise<MemorySignal[]> {
     const coll = await getCollection<MemorySignal>(SIGNALS);
     const rows = await coll.find({ clerkUserId }).sort({ occurredAt: -1 }).limit(limit).toArray();
+    return rows as MemorySignal[];
+  },
+
+  activityDatesFromSignals(rows: Pick<MemorySignal, 'occurredAt'>[]): string[] {
     return rows.map((r) => new Date(r.occurredAt).toISOString().slice(0, 10));
+  },
+
+  /** Distinct-ish list of activity dates (YYYY-MM-DD) from the most recent N signals. */
+  async getActivityDates(clerkUserId: string, limit = 500): Promise<string[]> {
+    return this.activityDatesFromSignals(await this.getActivitySignals(clerkUserId, limit));
   },
 
   /** Pure projection — no DB. Lets callers that already hold the dates avoid a second query. */
