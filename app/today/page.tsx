@@ -6,9 +6,11 @@ import { Activity, ArrowRight, Bot, Check, Clock3, Droplet, Dumbbell, Flame, Foo
 
 interface Exercise { name: string; sets: number; reps: string | number }
 interface Consistency { currentStreak: number; longestStreak: number; activeToday: boolean; weekPct: number; monthPct: number; trend: 'up' | 'flat' | 'down'; momentum: number }
-interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency }
 interface HabitState { habit: string; value: number; goal: number; unit: string; label: string; step: number; done: boolean }
 interface Gamification { xp: number; level: number; levelTitle: string; progressPct: number }
+interface TodayExtras { habits?: HabitState[]; gamification?: Gamification }
+interface TodayCard extends TodayExtras { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency }
+type TodayPayload = TodayCard | ({ needsPlan: true } & TodayExtras);
 type ViewState = 'loading' | 'card' | 'needsPlan' | 'auth' | 'error';
 
 const HABIT_ICONS = { water: Droplet, sleep: Moon, steps: Footprints, meditation: Sparkles, stretch: Activity };
@@ -36,18 +38,17 @@ export default function TodayPage() {
   const load = useCallback(async () => {
     setView('loading');
     try {
-      const [todayRes, habitsRes, gameRes, draftRes] = await Promise.all([
-        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'),
+      const [todayRes, draftRes] = await Promise.all([
+        fetch('/api/v1/today'), fetch('/api/v1/workout-builder'),
       ]);
       if (todayRes.status === 401) { setView('auth'); return; }
-      const todayJson = (await todayRes.json()) as { data?: TodayCard | { needsPlan?: boolean } };
-      if (!todayJson.data) { setView('error'); return; }
-      if ('needsPlan' in todayJson.data && todayJson.data.needsPlan) setView('needsPlan');
-      else { setCard(todayJson.data as TodayCard); setView('card'); }
-      const habitsJson = (await habitsRes.json()) as { data?: { habits?: HabitState[] } };
-      const gameJson = (await gameRes.json()) as { data?: Gamification };
+      const todayJson = (await todayRes.json()) as { data?: TodayPayload };
+      const todayData = todayJson.data;
+      if (!todayData) { setView('error'); return; }
       const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: unknown[] } } };
-      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0);
+      setHabits(todayData.habits ?? []); setGame(todayData.gamification ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0);
+      if ('needsPlan' in todayData && todayData.needsPlan) { setCard(null); setView('needsPlan'); }
+      else { setCard(todayData as TodayCard); setView('card'); }
     } catch { setView('error'); }
   }, []);
 
