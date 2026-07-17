@@ -1271,12 +1271,12 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (min-width: 900px) {
-  .welcome-page { display: flex; align-items: center; padding: 34px; }
+  .welcome-page { display: flex; height: 100dvh; min-height: 0; align-items: center; padding: 34px; }
   .welcome-brand { top: 20px; left: 26px; }
-  .onboarding-shell { grid-template-columns: .85fr 1.15fr; min-height: 680px; max-height: 90vh; }
-  .onboarding-aside { display: flex; flex-direction: column; }
+  .onboarding-shell { height: min(820px,calc(100dvh - 68px)); min-height: 0; grid-template-columns: .85fr 1.15fr; grid-template-rows: minmax(0,1fr); }
+  .onboarding-aside { display: flex; min-height: 0; overflow-y: auto; flex-direction: column; }
   .onboarding-form { overflow: hidden; padding: 0; }
-  .onboarding-form-scroll { min-height: 0; overflow-y: auto; padding: 42px 48px 24px; scrollbar-gutter: stable; }
+  .onboarding-form-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 42px 48px 24px; scrollbar-gutter: stable; }
   .onboarding-actions { z-index: 2; flex: 0 0 auto; margin-top: 0; padding: 16px 48px 22px; background: var(--surface); box-shadow: 0 -14px 30px rgba(0,0,0,.12); }
 }
 
