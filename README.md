@@ -10,7 +10,9 @@ travel, motivation dips), and keeps you accountable on web — and (soon) WhatsA
 
 - **Next.js 15** (App Router) · **TypeScript** · **Tailwind CSS v4**
 - **Clerk** — authentication
-- **MongoDB Atlas** — data (with an in-memory dev fallback when `MONGODB_URI` is unset)
+- **Supabase** — Clerk-keyed user/profile persistence
+- **MongoDB Atlas** — legacy domain data while migration continues (with an in-memory dev fallback
+  when `MONGODB_URI` is unset)
 - **AI provider layer** — Gemini / OpenAI / Claude behind one interface, with a deterministic
   offline mock so everything runs without keys
 - **Recharts** (lazy-loaded) · **Vitest** (policy unit tests)
