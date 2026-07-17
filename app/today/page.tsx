@@ -3,16 +3,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Activity, ArrowRight, Bot, Check, Clock3, Droplet, Dumbbell, Flame, Footprints, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils } from 'lucide-react';
+import type { ReadinessInput, ReadinessSnapshot } from '@/lib/services/readiness/types';
 
 interface Exercise { name: string; sets: number; reps: string | number }
 interface Consistency { currentStreak: number; longestStreak: number; activeToday: boolean; weekPct: number; monthPct: number; trend: 'up' | 'flat' | 'down'; momentum: number }
-interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency }
+interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency; readiness?: ReadinessSnapshot | null }
 interface HabitState { habit: string; value: number; goal: number; unit: string; label: string; step: number; done: boolean }
 interface Gamification { xp: number; level: number; levelTitle: string; progressPct: number }
 type ViewState = 'loading' | 'card' | 'needsPlan' | 'auth' | 'error';
 
 const HABIT_ICONS = { water: Droplet, sleep: Moon, steps: Footprints, meditation: Sparkles, stretch: Activity };
 const LOG_META = { workout: { icon: Dumbbell, label: 'Workout' }, meal: { icon: Utensils, label: 'Meal' }, water: { icon: Droplet, label: 'Water' }, weight: { icon: Scale, label: 'Weight' } };
+const DEFAULT_READINESS: ReadinessInput = { energy: 3, sleepHours: 7, soreness: 2, stress: 2, timeMinutes: 30 };
+const ENERGY_LABELS = ['Empty', 'Low', 'Okay', 'Good', 'Flying'];
+const SORENESS_LABELS = ['Fresh', 'Light', 'Noticeable', 'Very sore', 'Maxed'];
+const STRESS_LABELS = ['Calm', 'Light', 'Some', 'High', 'Overloaded'];
 
 function ProgressRing({ value, label }: { value: number; label: string }) {
   const radius = 42;
@@ -30,6 +35,9 @@ export default function TodayPage() {
   const [goal, setGoal] = useState('muscle gain');
   const [busy, setBusy] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
+  const [readinessOpen, setReadinessOpen] = useState(false);
+  const [readinessBusy, setReadinessBusy] = useState(false);
+  const [readinessDraft, setReadinessDraft] = useState<ReadinessInput>(DEFAULT_READINESS);
   const [toast, setToast] = useState('');
 
   const showToast = useCallback((message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2200); }, []);
@@ -43,7 +51,12 @@ export default function TodayPage() {
       const todayJson = (await todayRes.json()) as { data?: TodayCard | { needsPlan?: boolean } };
       if (!todayJson.data) { setView('error'); return; }
       if ('needsPlan' in todayJson.data && todayJson.data.needsPlan) setView('needsPlan');
-      else { setCard(todayJson.data as TodayCard); setView('card'); }
+      else {
+        const nextCard = todayJson.data as TodayCard;
+        setCard(nextCard);
+        if (nextCard.readiness?.checkin) setReadinessDraft(nextCard.readiness.checkin);
+        setView('card');
+      }
       const habitsJson = (await habitsRes.json()) as { data?: { habits?: HabitState[] } };
       const gameJson = (await gameRes.json()) as { data?: Gamification };
       const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: unknown[] } } };
@@ -72,6 +85,23 @@ export default function TodayPage() {
     if (json.data?.habits) setHabits(json.data.habits);
   }
 
+  async function saveReadiness() {
+    setReadinessBusy(true);
+    try {
+      const response = await fetch('/api/v1/readiness', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(readinessDraft) });
+      const json = (await response.json()) as { data?: ReadinessSnapshot };
+      if (!response.ok || !json.data) throw new Error();
+      setReadinessDraft(json.data.checkin);
+      setReadinessOpen(false);
+      await load();
+      showToast(json.data.band === 'push' ? 'You’re cleared for the full session' : 'Today’s session has been adjusted');
+    } catch {
+      showToast('Could not save your readiness check-in');
+    } finally {
+      setReadinessBusy(false);
+    }
+  }
+
   const c = card?.consistency;
   const prettyDate = new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -95,6 +125,24 @@ export default function TodayPage() {
           </article>
 
           <aside className="consistency-card"><div className="consistency-title"><span className="eyebrow">Consistency</span><Flame /></div>{c ? <><div className="consistency-main"><ProgressRing value={c.monthPct} label="this month" /><div><strong>{c.currentStreak}</strong><span>day streak</span><small>Personal best: {c.longestStreak} days</small></div></div><div className="week-progress"><span><small>This week</small><strong>{c.weekPct}%</strong></span><div><i style={{ width: `${c.weekPct}%` }} /></div></div><p className="trend-copy">{c.activeToday ? 'You have already moved today.' : c.trend === 'up' ? 'Your rhythm is improving.' : c.trend === 'down' ? 'A short session can protect your rhythm.' : 'You are holding a steady rhythm.'}</p></> : <p className="empty-copy">Complete your first activity to start tracking consistency.</p>}</aside>
+        </section>
+
+        <section className={`readiness-card ${card.readiness ? `is-${card.readiness.band}` : ''}`} aria-labelledby="readiness-title">
+          <div className="readiness-summary">
+            <span className="readiness-icon"><Activity /></span>
+            <div><span className="eyebrow">Adaptive training</span><h2 id="readiness-title">{card.readiness?.title ?? 'How ready do you feel?'}</h2><p>{card.readiness?.message ?? 'A quick check-in makes today’s workout match your actual energy, recovery, and time.'}</p></div>
+            {card.readiness ? <div className="readiness-score" aria-label={`Readiness score ${card.readiness.score} out of 100`}><strong>{card.readiness.score}</strong><small>ready</small></div> : null}
+            <button type="button" className="readiness-toggle" onClick={() => setReadinessOpen((current) => !current)}>{readinessOpen ? 'Close' : card.readiness ? 'Update' : 'Check in'}</button>
+          </div>
+
+          {readinessOpen && <form className="readiness-form" onSubmit={(event) => { event.preventDefault(); void saveReadiness(); }}>
+            <div className="readiness-field"><span>Energy</span><div className="readiness-scale">{ENERGY_LABELS.map((label, index) => { const value = (index + 1) as ReadinessInput['energy']; return <button type="button" key={label} className={readinessDraft.energy === value ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, energy: value }))} aria-pressed={readinessDraft.energy === value}><b>{value}</b><small>{label}</small></button>; })}</div></div>
+            <div className="readiness-field"><span>Sleep last night</span><div className="readiness-options">{[[4, 'Under 5h'], [6, '5–6h'], [7, '7–8h'], [9, '8h+']].map(([hours, label]) => <button type="button" key={label} className={readinessDraft.sleepHours === hours ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, sleepHours: hours as number }))} aria-pressed={readinessDraft.sleepHours === hours}>{label}</button>)}</div></div>
+            <div className="readiness-field"><span>Muscle soreness</span><div className="readiness-options readiness-options-wide">{SORENESS_LABELS.map((label, index) => { const value = (index + 1) as ReadinessInput['soreness']; return <button type="button" key={label} className={readinessDraft.soreness === value ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, soreness: value }))} aria-pressed={readinessDraft.soreness === value}>{label}</button>; })}</div></div>
+            <div className="readiness-field"><span>Stress</span><div className="readiness-options readiness-options-wide">{STRESS_LABELS.map((label, index) => { const value = (index + 1) as ReadinessInput['stress']; return <button type="button" key={label} className={readinessDraft.stress === value ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, stress: value }))} aria-pressed={readinessDraft.stress === value}>{label}</button>; })}</div></div>
+            <div className="readiness-field"><span>Time you have</span><div className="readiness-options">{[15, 30, 45, 60].map((minutes) => <button type="button" key={minutes} className={readinessDraft.timeMinutes === minutes ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, timeMinutes: minutes as ReadinessInput['timeMinutes'] }))} aria-pressed={readinessDraft.timeMinutes === minutes}>{minutes} min</button>)}</div></div>
+            <div className="readiness-form-footer"><small>Training guidance only — not a medical score.</small><button type="submit" className="button-primary" disabled={readinessBusy}>{readinessBusy ? 'Adapting…' : 'Adapt my session'}<ArrowRight /></button></div>
+          </form>}
         </section>
 
         {card.insight && <aside className="coach-insight"><span><Bot /></span><div><small>Fitcore AI recommendation</small><p>{card.insight}</p></div><Link href="/chat">Ask coach <ArrowRight /></Link></aside>}

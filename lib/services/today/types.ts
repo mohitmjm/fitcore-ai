@@ -1,13 +1,7 @@
 import type { CoachMode } from '@/lib/services/memory/types';
+import type { ReadinessInput, ReadinessSnapshot } from '@/lib/services/readiness/types';
 
-export interface CheckinInput {
-  energy?: 1 | 2 | 3 | 4 | 5;
-  sleepHours?: number;
-  timeMinutes?: number;
-  busy?: boolean;
-  traveling?: boolean;
-  sick?: boolean;
-}
+export type CheckinInput = ReadinessInput;
 
 export interface TodaySignals {
   date: string; // ISO date (YYYY-MM-DD)
@@ -45,4 +39,6 @@ export interface TodayCard {
   insight?: string;
   /** Streak + consistency snapshot. Set by the service. */
   consistency?: ConsistencySnapshot;
+  /** Today's durable self-reported training signal, if the member completed the check-in. */
+  readiness?: ReadinessSnapshot | null;
 }

@@ -4,15 +4,16 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Apple, BarChart3, Bot, ChevronRight, CircleUserRound, Dumbbell, Flame, Home, Moon, Search, Settings, Sun } from 'lucide-react';
+import { Apple, BarChart3, Bot, ChevronRight, CircleUserRound, Dumbbell, Flame, Home, Moon, Orbit, Search, Settings, Sun } from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Today', href: '/today', icon: Home, mobile: true },
-  { name: 'Body & Exercises', href: '/exercises', icon: Search, mobile: true },
-  { name: 'Workouts', href: '/workout', icon: Dumbbell },
-  { name: 'AI Coach', href: '/chat', icon: Bot, mobile: true },
+  { name: 'Explore', href: '/exercises', icon: Search, mobile: true },
+  { name: 'Train', href: '/workout', icon: Dumbbell, mobile: true },
+  { name: 'World', href: '/world', icon: Orbit, mobile: true },
+  { name: 'AI Coach', href: '/chat', icon: Bot },
   { name: 'Nutrition', href: '/diet', icon: Apple },
-  { name: 'Progress', href: '/progress', icon: BarChart3, mobile: true },
+  { name: 'Progress', href: '/progress', icon: BarChart3 },
 ];
 const NO_SHELL = ['/', '/login', '/welcome'];
 function active(pathname: string, href: string) { return pathname === href || (href !== '/today' && pathname.startsWith(`${href}/`)); }
@@ -49,6 +50,6 @@ export default function DevNavigationWrapper({ children }: { children: React.Rea
     </aside>
     <header className="mobile-app-header"><Link href="/today" className="mobile-brand"><Image src="/logo.png" width={40} height={40} alt="Fitcore AI" /></Link><div className="mobile-header-actions"><span><Flame />Ready</span><Link href="/profile" aria-label="Open profile">A</Link></div></header>
     <main className="app-main"><div className="app-content">{children}</div></main>
-    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">{mobileItems.map((item) => { const Icon=item.icon; const selected=active(pathname,item.href); return <Link key={item.href} href={item.href} className={selected?'active':''} aria-current={selected?'page':undefined}><span><Icon />{selected&&<i />}</span><small>{item.name==='Body & Exercises'?'Exercises':item.name==='AI Coach'?'Coach':item.name}</small></Link>; })}</nav>
+    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">{mobileItems.map((item) => { const Icon=item.icon; const selected=active(pathname,item.href); return <Link key={item.href} href={item.href} className={selected?'active':''} aria-current={selected?'page':undefined}><span><Icon />{selected&&<i />}</span><small>{item.name}</small></Link>; })}</nav>
   </div>;
 }

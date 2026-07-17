@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeGamification, levelForXp, xpForSignals, levelTitle } from './gamification';
+import { computeGamification, levelForXp, xpForSignals, levelTitle, validatedXpForEvents } from './gamification';
 
 const today = '2026-06-17';
 
@@ -31,10 +31,22 @@ describe('levelForXp', () => {
 });
 
 describe('levelTitle', () => {
-  it('maps levels to titles and caps at Legend', () => {
-    expect(levelTitle(1)).toBe('Rookie');
-    expect(levelTitle(3)).toBe('Regular');
-    expect(levelTitle(99)).toBe('Legend');
+  it('maps levels to the Fitcore progression tiers', () => {
+    expect(levelTitle(1)).toBe('Foundation');
+    expect(levelTitle(11)).toBe('Challenger');
+    expect(levelTitle(99)).toBe('Master');
+    expect(levelTitle(100)).toBe('Fitcore Legend');
+  });
+});
+
+describe('validatedXpForEvents', () => {
+  it('deduplicates repeated logs and caps high-frequency XP events', () => {
+    const repeated = Array.from({ length: 10 }, (_, index) => ({
+      type: 'workout_logged',
+      occurredAt: `2026-06-17T10:${String(index).padStart(2, '0')}:00Z`,
+      payload: { exerciseName: index < 2 ? 'Push-up' : `Exercise ${index}` },
+    }));
+    expect(validatedXpForEvents(repeated)).toBe(120);
   });
 });
 

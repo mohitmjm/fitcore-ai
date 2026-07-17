@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check, CheckCircle2, ChevronRight, Dumbbell, Gauge, ListRestart, Pause, Play, Plus, RotateCw, SkipForward, Sparkles, TimerReset, Trophy, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Award, Check, CheckCircle2, ChevronRight, Dumbbell, Gauge, HeartPulse, ListRestart, Pause, Play, Plus, RotateCw, ShieldAlert, SkipForward, Sparkles, TimerReset, Trophy, X, Zap } from 'lucide-react';
 import MovementDemo from '@/components/exercises/MovementDemo';
 import { EXERCISES } from '@/lib/exercises/catalog';
 import type { Exercise } from '@/lib/exercises/types';
@@ -30,6 +30,10 @@ export default function WorkoutPage() {
   const [loaded, setLoaded] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [active, setActive] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [painOpen, setPainOpen] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [setIndex, setSetIndex] = useState(0);
   const [setLogs, setSetLogs] = useState<Record<string, SetLog[]>>({});
@@ -57,6 +61,14 @@ export default function WorkoutPage() {
   const current = exercises[exerciseIndex];
   const completedCount = exercises.filter((item) => completed.includes(item.name)).length;
   const progressPercent = exercises.length ? Math.round((completedCount / exercises.length) * 100) : 0;
+  const sessionTotals = useMemo(() => {
+    let sets = 0; let volume = 0;
+    for (const logs of Object.values(setLogs)) for (const log of logs) if (log.done) {
+      sets += 1;
+      volume += (Number.parseFloat(log.weight) || 0) * (Number.parseFloat(log.reps) || 0);
+    }
+    return { sets, volume: Math.round(volume), xp: Math.min(120, completedCount * 20), muscles: [...new Set(exercises.map((item) => item.muscleGroup))].slice(0, 5) };
+  }, [completedCount, exercises, setLogs]);
 
   useEffect(() => {
     if (!current || setLogs[current.name]) return;
@@ -83,7 +95,7 @@ export default function WorkoutPage() {
   }
 
   async function regenerate() { setRegenerating(true); try { await fetch('/api/v1/plan', { method: 'POST' }); setSelectedDayIndex(0); await load(); } finally { setRegenerating(false); } }
-  function startSession() { if (!exercises.length) return; setActive(true); setExerciseIndex(0); setSetIndex(0); }
+  function startSession() { if (!exercises.length) return; setFinished(false); setFeedback(''); setFeedbackMessage(''); setActive(true); setExerciseIndex(0); setSetIndex(0); }
   function showMessage(message: string) { setToast(message); window.setTimeout(() => setToast(''), 2000); }
 
   async function completeSet() {
@@ -96,14 +108,32 @@ export default function WorkoutPage() {
       await setCompletion(current.name, true);
       showMessage(`${current.name} complete`);
       if (exerciseIndex < exercises.length - 1) { setExerciseIndex((index) => index + 1); setSetIndex(0); }
-      else setActive(false);
+      else { setActive(false); setFinished(true); }
     } else {
       setSetIndex((index) => index + 1); setRestSeconds(current.restSeconds); setRestPaused(false);
     }
   }
 
+  async function submitFeedback(value: string) {
+    setFeedback(value);
+    try {
+      const response = await fetch('/api/v1/workout-feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ feedback: value, workoutDate: today }) });
+      const json = (await response.json()) as { data?: { message?: string } };
+      setFeedbackMessage(json.data?.message ?? 'Your next session will reflect this feedback.');
+    } catch { setFeedbackMessage('Feedback saved on this screen. Try again later to sync it.'); }
+  }
+
   if (!loaded) return <div className="workout-loading"><div className="skeleton-block" /><div className="skeleton-block" /></div>;
   if (!plan || plan.days.length === 0) return <div className="state-panel workout-empty"><span><Dumbbell /></span><strong>No workout plan yet</strong><p>Complete your profile so Fitcore can build a plan around your goal, experience, and equipment.</p><Link href="/profile">Set up profile <ArrowRight /></Link></div>;
+
+  if (finished) return <div className="workout-summary-page">
+    <header className="workout-summary-hero"><span className="summary-check"><Check /></span><div><span className="eyebrow">Session complete</span><h1>You moved the world forward.</h1><p>Progress comes from repeatable sessions like this one—not from emptying the tank every time.</p></div><span className="summary-xp"><Zap /><strong>+{sessionTotals.xp}</strong><small>verified XP</small></span></header>
+    <div className="summary-stat-grid"><div><Activity /><span><small>Completed sets</small><strong>{sessionTotals.sets}</strong></span></div><div><Gauge /><span><small>Training volume</small><strong>{sessionTotals.volume ? `${sessionTotals.volume.toLocaleString()} kg` : 'Bodyweight'}</strong></span></div><div><Dumbbell /><span><small>Muscles trained</small><strong>{sessionTotals.muscles.length}</strong></span></div><div><Award /><span><small>Mission progress</small><strong>Updated</strong></span></div></div>
+    <section className="summary-muscles"><div><span className="eyebrow">Training coverage</span><h2>Areas trained</h2></div><div>{sessionTotals.muscles.map((muscle) => <span key={muscle}>{muscle}</span>)}</div></section>
+    <section className="effort-feedback"><div><span className="eyebrow">Adaptive difficulty</span><h2>How did that session feel?</h2><p>Fitcore changes one variable at a time. Pain always blocks automatic progression.</p></div><div className="effort-options">{[['too_easy','Too easy'],['appropriate','Appropriate'],['challenging','Challenging'],['too_difficult','Too difficult'],['pain','Pain or discomfort']].map(([value,label]) => <button type="button" key={value} className={feedback === value ? 'active' : value === 'pain' ? 'pain' : ''} onClick={() => void submitFeedback(value)}>{feedback === value && <Check />}{label}</button>)}</div>{feedbackMessage && <aside className={feedback === 'pain' ? 'feedback-result is-pain' : 'feedback-result'}><ShieldAlert />{feedbackMessage}</aside>}</section>
+    <section className="summary-recovery"><HeartPulse /><div><span className="eyebrow">Recovery suggestion</span><h2>Refuel, hydrate, and keep the next hour easy.</h2><p>Your readiness check tomorrow will decide whether to build, repeat, or recover.</p></div><Link href="/world">Open Fitness World <ArrowRight /></Link></section>
+    <div className="summary-actions"><button type="button" className="button-secondary" onClick={() => setFinished(false)}>Back to plan</button><Link href="/world" className="button-primary"><Trophy />Claim progress</Link></div>
+  </div>;
 
   if (active && current) {
     const logs = setLogs[current.name] ?? [];
@@ -121,10 +151,11 @@ export default function WorkoutPage() {
           <div className="set-chip-row">{Array.from({ length: current.sets }, (_, index) => <span key={index} className={logs[index]?.done ? 'done' : index === setIndex ? 'active' : ''}>{logs[index]?.done ? <Check /> : index + 1}</span>)}</div>
           <div className="current-set-card"><div className="set-card-title"><span>Set {setIndex + 1}</span><small>{current.sets} total sets</small></div><div className="set-input-grid"><label><span>Reps</span><input inputMode="numeric" value={currentLog.reps} onChange={(event) => setSetLogs((all) => ({ ...all, [current.name]: logs.map((log,index) => index === setIndex ? { ...log, reps: event.target.value } : log) }))} /></label><label><span>Weight (kg)</span><input inputMode="decimal" placeholder="Bodyweight" value={currentLog.weight} onChange={(event) => setSetLogs((all) => ({ ...all, [current.name]: logs.map((log,index) => index === setIndex ? { ...log, weight: event.target.value } : log) }))} /></label></div><button type="button" className="complete-set-button" onClick={completeSet}><CheckCircle2 />{setIndex === current.sets - 1 ? 'Complete exercise' : 'Complete set'}<ArrowRight /></button></div>
           <div className="previous-performance"><Gauge /><div><small>Previous performance</small><strong>No set history yet</strong></div><span>First logged session</span></div>
-          <div className="active-secondary-actions"><Link href={`/exercises?muscle=${encodeURIComponent(current.muscleGroup.toLowerCase())}`}><ListRestart />Replace exercise</Link><button type="button" onClick={() => setRestSeconds(current.restSeconds)}><TimerReset />Start rest</button></div>
+          <div className="active-secondary-actions"><Link href={`/exercises?muscle=${encodeURIComponent(current.muscleGroup.toLowerCase())}`}><ListRestart />Replace exercise</Link><button type="button" onClick={() => setRestSeconds(current.restSeconds)}><TimerReset />Start rest</button><button type="button" className="report-pain" onClick={() => setPainOpen(true)}><AlertTriangle />Report pain</button></div>
         </section>
       </main>
       {restSeconds > 0 && <aside className="rest-overlay"><div className="rest-timer"><span>Rest</span><strong>{Math.floor(restSeconds / 60)}:{String(restSeconds % 60).padStart(2,'0')}</strong><small>Next: set {Math.min(setIndex + 1, current.sets)} of {current.sets}</small></div><div className="rest-actions"><button type="button" onClick={() => setRestPaused((value) => !value)}>{restPaused ? <Play /> : <Pause />}{restPaused ? 'Resume' : 'Pause'}</button><button type="button" className="skip-rest" onClick={() => setRestSeconds(0)}>Skip rest <ArrowRight /></button></div></aside>}
+      {painOpen && <div className="pain-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setPainOpen(false)}><section className="pain-sheet" role="dialog" aria-modal="true" aria-labelledby="pain-title"><button type="button" className="pain-close" onClick={() => setPainOpen(false)} aria-label="Close pain guidance"><X /></button><span><AlertTriangle /></span><h2 id="pain-title">Pain changes the plan.</h2><p>Stop this movement if the pain is sharp, sudden, worsening, or affects balance. Fitcore will not progress load from a pain report.</p><ul><li><Check />End the set and unload safely</li><li><Check />Note where and when it hurt</li><li><Check />Choose a pain-free alternative only if appropriate</li></ul><button type="button" className="button-primary" onClick={() => { setPainOpen(false); setActive(false); setFinished(true); void submitFeedback('pain'); }}>End workout safely</button><Link href={`/chat?prompt=${encodeURIComponent(`I felt pain during ${current.name}. Help me stop safely and suggest questions to discuss with a qualified professional. Do not diagnose me.`)}`}>Ask the coach for safe next steps <ArrowRight /></Link><small>Chest pain, fainting, severe shortness of breath, or signs of a serious injury may require urgent medical care.</small></section></div>}
       {toast && <div className="app-toast"><Check />{toast}</div>}
     </div>;
   }

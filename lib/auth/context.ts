@@ -15,7 +15,8 @@ const DEV_USER_ID = 'dev-user';
  * Role + plan are loaded from the Clerk-keyed Supabase profile. See docs/architecture/04 §2.2.
  */
 export async function buildContext(source: Source = 'web'): Promise<AuthContext> {
-  const clerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const localPreview = process.env.FITCORE_PREVIEW === '1';
+  const clerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && !localPreview;
 
   let clerkUserId: string;
   if (clerkConfigured) {

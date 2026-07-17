@@ -67,7 +67,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const localPreview = process.env.NEXT_PUBLIC_FITCORE_PREVIEW === '1';
+  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) && !localPreview;
   return (
     <html lang="en" className={`${inter.variable} dark h-full antialiased`} suppressHydrationWarning>
       <body

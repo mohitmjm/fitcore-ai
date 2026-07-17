@@ -15,6 +15,7 @@ import {
   Home,
   LogOut,
   Moon,
+  Orbit,
   Search,
   Settings,
   Sun,
@@ -29,11 +30,12 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { name: 'Today', href: '/today', icon: Home, mobile: true },
-  { name: 'Body & Exercises', href: '/exercises', icon: Search, mobile: true },
-  { name: 'Workouts', href: '/workout', icon: Dumbbell },
-  { name: 'AI Coach', href: '/chat', icon: Bot, mobile: true },
+  { name: 'Explore', href: '/exercises', icon: Search, mobile: true },
+  { name: 'Train', href: '/workout', icon: Dumbbell, mobile: true },
+  { name: 'World', href: '/world', icon: Orbit, mobile: true },
+  { name: 'AI Coach', href: '/chat', icon: Bot },
   { name: 'Nutrition', href: '/diet', icon: Apple },
-  { name: 'Progress', href: '/progress', icon: BarChart3, mobile: true },
+  { name: 'Progress', href: '/progress', icon: BarChart3 },
 ];
 
 const NO_SHELL = ['/', '/login', '/welcome'];
@@ -141,7 +143,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
-          return <Link key={item.href} href={item.href} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><span><Icon />{active && <i />}</span><small>{item.name === 'Body & Exercises' ? 'Exercises' : item.name === 'AI Coach' ? 'Coach' : item.name}</small></Link>;
+          return <Link key={item.href} href={item.href} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><span><Icon />{active && <i />}</span><small>{item.name}</small></Link>;
         })}
       </nav>
     </div>
