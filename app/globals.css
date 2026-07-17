@@ -1230,7 +1230,8 @@ a { color: inherit; text-decoration: none; }
 .privacy-note span { display: flex; flex-direction: column; }
 .privacy-note strong { color: var(--muted-strong); font-size: 9px; }
 .privacy-note small { margin-top: 2px; color: var(--muted); font-size: 7px; }
-.onboarding-form { display: flex; flex-direction: column; padding: 18px 15px; }
+.onboarding-form { display: flex; min-width: 0; min-height: 0; flex-direction: column; padding: 18px 15px; }
+.onboarding-form-scroll { display: flex; flex: 1; flex-direction: column; }
 .onboarding-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
 .onboarding-progress > span { flex: 0 0 auto; color: var(--muted); font-size: 8px; font-weight: 750; }
 .onboarding-progress > div { flex: 1; height: 4px; overflow: hidden; border-radius: 999px; background: var(--surface-soft); }
@@ -1274,7 +1275,9 @@ a { color: inherit; text-decoration: none; }
   .welcome-brand { top: 20px; left: 26px; }
   .onboarding-shell { grid-template-columns: .85fr 1.15fr; min-height: 680px; max-height: 90vh; }
   .onboarding-aside { display: flex; flex-direction: column; }
-  .onboarding-form { overflow-y: auto; padding: 42px 48px 30px; }
+  .onboarding-form { overflow: hidden; padding: 0; }
+  .onboarding-form-scroll { min-height: 0; overflow-y: auto; padding: 42px 48px 24px; scrollbar-gutter: stable; }
+  .onboarding-actions { z-index: 2; flex: 0 0 auto; margin-top: 0; padding: 16px 48px 22px; background: var(--surface); box-shadow: 0 -14px 30px rgba(0,0,0,.12); }
 }
 
 /* Procedural exercise motion system ---------------------------------------------------- */
