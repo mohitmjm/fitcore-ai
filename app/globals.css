@@ -512,7 +512,7 @@ a { color: inherit; text-decoration: none; }
 .sidebar-status small { color: var(--muted); font-size: 9px; }
 .sidebar-status strong { overflow: hidden; margin-top: 2px; color: var(--muted-strong); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-status > svg { width: 14px; color: var(--muted); }
-.desktop-nav { display: flex; flex: 1; flex-direction: column; gap: 5px; padding: 12px 14px; overflow-y: auto; }
+.desktop-nav { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 5px; padding: 12px 14px; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 12px; scrollbar-gutter: stable; }
 .nav-section-label { padding: 6px 10px 8px; color: #626a66; font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .desktop-nav a { position: relative; display: flex; align-items: center; gap: 13px; min-height: 44px; padding: 0 12px; border: 1px solid transparent; border-radius: 12px; color: #909894; font-size: 12px; font-weight: 650; transition: .18s ease; }
 .light .desktop-nav a { color: var(--muted); }
@@ -521,8 +521,8 @@ a { color: inherit; text-decoration: none; }
 .desktop-nav a.active { background: rgba(199,246,90,.09); border-color: rgba(199,246,90,.16); color: var(--primary); }
 .desktop-nav a svg { width: 18px; height: 18px; stroke-width: 1.8; }
 .desktop-nav a i { position: absolute; right: 10px; width: 5px; height: 5px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 12px rgba(199,246,90,.4); }
-.sidebar-footer { padding: 14px; border-top: 1px solid #242927; }
-.light .sidebar-footer { border-color: var(--line); }
+.sidebar-footer { position: relative; z-index: 1; flex: 0 0 auto; padding: 14px; border-top: 1px solid #242927; background: #0f1211; }
+.light .sidebar-footer { border-color: var(--line); background: #fbfcf8; }
 .profile-link { display: flex; align-items: center; gap: 9px; padding: 9px; border-radius: 12px; }
 .profile-link:hover, .profile-link.active { background: var(--surface-raised); }
 .profile-avatar { display: grid; width: 33px; height: 33px; place-items: center; border-radius: 10px; background: var(--primary); color: var(--primary-ink); font-size: 12px; font-weight: 900; }

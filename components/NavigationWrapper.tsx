@@ -56,6 +56,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   const shellVisible = !clerkConfigured || Boolean(isSignedIn);
+  const appRoute = !isNoShell(pathname);
 
   useEffect(() => {
     setMounted(true);
@@ -66,7 +67,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   }, []);
 
   useEffect(() => {
-    if (!clerkConfigured || !isLoaded || !isSignedIn || pathname === '/welcome') return;
+    if (!clerkConfigured || !isLoaded || !isSignedIn || !appRoute) return;
     let active = true;
     fetch('/api/v1/me')
       .then((response) => response.ok ? response.json() : null)
@@ -75,7 +76,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [clerkConfigured, isLoaded, isSignedIn, pathname, router]);
+  }, [appRoute, clerkConfigured, isLoaded, isSignedIn, router]);
 
   const mobileItems = useMemo(() => [
     ...NAV_ITEMS.filter((item) => item.mobile),
@@ -89,7 +90,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     document.documentElement.classList.toggle('light', next === 'light');
   }
 
-  if (!mounted || isNoShell(pathname) || !shellVisible) {
+  if (!mounted || !appRoute || !shellVisible) {
     return <div className="min-h-screen"><main>{children}</main></div>;
   }
 
