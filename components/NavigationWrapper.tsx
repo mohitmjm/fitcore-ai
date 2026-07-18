@@ -19,6 +19,7 @@ import {
   Search,
   Settings,
   Sun,
+  Zap,
 } from 'lucide-react';
 
 interface NavItem {
@@ -30,9 +31,10 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { name: 'Today', href: '/today', icon: Home, mobile: true },
+  { name: 'Momentum', href: '/momentum', icon: Zap, mobile: true },
   { name: 'Explore', href: '/exercises', icon: Search, mobile: true },
   { name: 'Train', href: '/workout', icon: Dumbbell, mobile: true },
-  { name: 'World', href: '/world', icon: Orbit, mobile: true },
+  { name: 'World', href: '/world', icon: Orbit },
   { name: 'AI Coach', href: '/chat', icon: Bot },
   { name: 'Nutrition', href: '/diet', icon: Apple },
   { name: 'Progress', href: '/progress', icon: BarChart3 },

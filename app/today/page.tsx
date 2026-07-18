@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowRight, Bot, BookOpen, Check, Clock3, Download, Droplet, Dumbbell, Flame, Footprints, History, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils } from 'lucide-react';
+import { Activity, ArrowRight, Bot, BookOpen, Check, Clock3, Download, Droplet, Dumbbell, Flame, Footprints, History, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils, Zap } from 'lucide-react';
 import type { ReadinessInput, ReadinessSnapshot } from '@/lib/services/readiness/types';
 
 interface Exercise { name: string; sets: number; reps: string | number }
@@ -11,6 +11,7 @@ interface TodayCard { date: string; mode: string; greeting: string; primaryActio
 interface HabitState { habit: string; value: number; goal: number; unit: string; label: string; step: number; done: boolean }
 interface Gamification { xp: number; level: number; levelTitle: string; progressPct: number }
 type StoryPreview = { status: 'ready'; snapshotId?: string; weekStart: string; weekEnd: string; viewed: boolean; consistencyPct?: number; standout?: string } | { status: 'forming'; message: string; weekStart: string; weekEnd: string };
+interface MomentumPreview { completedToday?: { title: string; durationMinutes: number; xpReward: number }; quests: { id: string; title: string; durationMinutes: number; recommended: boolean }[]; streak: { current: number; activeDaysLast7: number } }
 type ViewState = 'loading' | 'card' | 'needsPlan' | 'auth' | 'error';
 
 const HABIT_ICONS = { water: Droplet, sleep: Moon, steps: Footprints, meditation: Sparkles, stretch: Activity };
@@ -33,6 +34,7 @@ export default function TodayPage() {
   const [habits, setHabits] = useState<HabitState[]>([]);
   const [game, setGame] = useState<Gamification | null>(null);
   const [storyPreview, setStoryPreview] = useState<StoryPreview | null>(null);
+  const [momentum, setMomentum] = useState<MomentumPreview | null>(null);
   const [draftCount, setDraftCount] = useState(0);
   const [goal, setGoal] = useState('muscle gain');
   const [busy, setBusy] = useState(false);
@@ -47,8 +49,8 @@ export default function TodayPage() {
     setView('loading');
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
-      const [todayRes, habitsRes, gameRes, draftRes, storyRes] = await Promise.all([
-        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'), fetch(`/api/v1/weekly-story?preview=1&period=previous&timezone=${encodeURIComponent(timezone)}`),
+      const [todayRes, habitsRes, gameRes, draftRes, storyRes, momentumRes] = await Promise.all([
+        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'), fetch(`/api/v1/weekly-story?preview=1&period=previous&timezone=${encodeURIComponent(timezone)}`), fetch(`/api/v1/momentum?timezone=${encodeURIComponent(timezone)}`),
       ]);
       if (todayRes.status === 401) { setView('auth'); return; }
       const todayJson = (await todayRes.json()) as { data?: TodayCard | { needsPlan?: boolean } };
@@ -64,7 +66,8 @@ export default function TodayPage() {
       const gameJson = (await gameRes.json()) as { data?: Gamification };
       const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: unknown[] } } };
       const storyJson = (await storyRes.json().catch(() => ({}))) as { data?: StoryPreview };
-      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0); setStoryPreview(storyJson.data ?? null);
+      const momentumJson = (await momentumRes.json().catch(() => ({}))) as { data?: MomentumPreview };
+      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0); setStoryPreview(storyJson.data ?? null); setMomentum(momentumJson.data ?? null);
     } catch { setView('error'); }
   }, []);
 
@@ -148,6 +151,13 @@ export default function TodayPage() {
             <div className="readiness-form-footer"><small>Training guidance only — not a medical score.</small><button type="submit" className="button-primary" disabled={readinessBusy}>{readinessBusy ? 'Adapting…' : 'Adapt my session'}<ArrowRight /></button></div>
           </form>}
         </section>
+
+        {momentum ? <aside className={`momentum-entry ${momentum.completedToday ? 'is-complete' : ''}`}>
+          <span className="momentum-entry-icon"><Zap /></span>
+          <div><span className="eyebrow">Momentum Quest</span><h2>{momentum.completedToday ? 'Today’s momentum is protected' : momentum.quests.find((quest) => quest.recommended)?.title ?? 'Choose one small win'}</h2><p>{momentum.completedToday ? `${momentum.completedToday.durationMinutes} minutes completed · +${momentum.completedToday.xpReward} XP` : `${momentum.quests.find((quest) => quest.recommended)?.durationMinutes ?? 8} minutes · strength, movement, or recovery all count`}</p></div>
+          <div className="momentum-entry-stat"><strong>{momentum.streak.current}</strong><small>day rhythm</small></div>
+          <Link href="/momentum">{momentum.completedToday ? 'View path' : 'Choose quest'}<ArrowRight /></Link>
+        </aside> : null}
 
         {storyPreview ? <aside className={`weekly-story-entry ${storyPreview.status === 'forming' ? 'is-forming' : ''}`}>
           <span className="weekly-story-icon"><BookOpen /></span>

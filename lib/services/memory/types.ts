@@ -62,6 +62,7 @@ export type SignalType =
   | 'plan_feedback'
   | 'mode_hint'
   | 'streak_event'
+  | 'quest_completed'
   | 'nudge_result';
 
 /** Append-only raw signal stream. Compacted into CoachMemory by the reflection job. */

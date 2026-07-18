@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Apple, BarChart3, Bot, ChevronRight, CircleUserRound, Dumbbell, Flame, Home, Moon, Orbit, Search, Settings, Sun } from 'lucide-react';
+import { Apple, BarChart3, Bot, ChevronRight, CircleUserRound, Dumbbell, Flame, Home, Moon, Orbit, Search, Settings, Sun, Zap } from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Today', href: '/today', icon: Home, mobile: true },
+  { name: 'Momentum', href: '/momentum', icon: Zap, mobile: true },
   { name: 'Explore', href: '/exercises', icon: Search, mobile: true },
   { name: 'Train', href: '/workout', icon: Dumbbell, mobile: true },
-  { name: 'World', href: '/world', icon: Orbit, mobile: true },
+  { name: 'World', href: '/world', icon: Orbit },
   { name: 'AI Coach', href: '/chat', icon: Bot },
   { name: 'Nutrition', href: '/diet', icon: Apple },
   { name: 'Progress', href: '/progress', icon: BarChart3 },

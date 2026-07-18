@@ -48,6 +48,13 @@ describe('validatedXpForEvents', () => {
     }));
     expect(validatedXpForEvents(repeated)).toBe(120);
   });
+
+  it('awards at most one Momentum Quest per day', () => {
+    expect(validatedXpForEvents([
+      { type: 'quest_completed', occurredAt: '2026-06-17T08:00:00Z', payload: { date: today, questId: 'one' } },
+      { type: 'quest_completed', occurredAt: '2026-06-17T09:00:00Z', payload: { date: today, questId: 'two' } },
+    ])).toBe(12);
+  });
 });
 
 describe('computeGamification', () => {
