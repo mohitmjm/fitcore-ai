@@ -13,6 +13,7 @@ export const GamificationService = {
     const signalTypes = rows.map((r) => r.type);
     const activityDates = rows.map((r) => new Date(r.occurredAt).toISOString().slice(0, 10));
     const today = new Date().toISOString().slice(0, 10);
-    return computeGamification({ signalTypes, activityDates, today });
+    const events = rows.map((row) => ({ type: row.type, occurredAt: row.occurredAt, payload: row.payload }));
+    return computeGamification({ signalTypes, activityDates, today, events });
   },
 };

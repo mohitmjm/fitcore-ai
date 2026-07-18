@@ -1,186 +1,61 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
-import {
-  Trophy,
-  Flame,
-  Award,
-  Lock,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Zap,
-  CalendarCheck,
-} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Award, CalendarCheck, Check, Flame, LockKeyhole, Shield, Sparkles, Zap } from 'lucide-react';
 
 interface Badge {
   id: string;
   label: string;
   description: string;
   earned: boolean;
+  progress: number;
+  target: number;
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  xpReward: number;
 }
-interface Gamification {
-  xp: number;
-  level: number;
-  levelTitle: string;
-  xpIntoLevel: number;
-  xpForNextLevel: number;
-  progressPct: number;
-  badges: Badge[];
-  consistency: Consistency;
-}
-interface Consistency {
-  currentStreak: number;
-  longestStreak: number;
-  activeToday: boolean;
-  weekPct: number;
-  monthPct: number;
-  trend: 'up' | 'flat' | 'down';
-  momentum: number;
-  last7: number;
-  last28: number;
-  totalActiveDays: number;
-}
+interface Consistency { currentStreak: number; longestStreak: number; activeToday: boolean; weekPct: number; monthPct: number; trend: 'up' | 'flat' | 'down'; momentum: number; last7: number; last28: number; totalActiveDays: number }
+interface Gamification { xp: number; level: number; levelTitle: string; xpIntoLevel: number; xpForNextLevel: number; progressPct: number; badges: Badge[]; consistency: Consistency }
 
 export default function AchievementsPage() {
   const [game, setGame] = useState<Gamification | null>(null);
-  const [c, setC] = useState<Consistency | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading(true); setError('');
     try {
-      // Single fetch: gamification returns the consistency snapshot it already computes.
-      const g = await fetch('/api/v1/gamification').then((r) => (r.ok ? r.json() : null));
-      if (g?.data) {
-        const data = g.data as Gamification;
-        setGame(data);
-        setC(data.consistency);
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
-    }
+      const response = await fetch('/api/v1/gamification');
+      const json = (await response.json()) as { data?: Gamification; error?: { message?: string } };
+      if (!response.ok || !json.data) throw new Error(json.error?.message ?? 'Achievements could not load.');
+      setGame(json.data);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Achievements could not load.'); }
+    finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
+  if (loading) return <div className="achievement-loading"><div className="skeleton-block" /><div className="skeleton-block" /></div>;
+  if (error || !game) return <div className="state-panel error-state"><strong>Achievements unavailable</strong><p>{error}</p><button type="button" onClick={() => void load()}>Try again</button></div>;
 
-  const earned = game?.badges.filter((b) => b.earned).length ?? 0;
-  const total = game?.badges.length ?? 0;
+  const earned = game.badges.filter((badge) => badge.earned);
+  const upcoming = game.badges.filter((badge) => !badge.earned).sort((a, b) => (b.progress / b.target) - (a.progress / a.target));
+  const c = game.consistency;
 
   return (
-    <div className="space-y-8 animate-[fadeIn_0.4s_ease-out]">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
-          <Trophy className="h-8 w-8 text-yellow-400" />
-          Achievements
-        </h1>
-        <p className="text-gray-400 mt-1.5 text-sm">Your level, streaks, and badges — earned by showing up.</p>
-      </div>
+    <div className="page-stack achievements-page">
+      <header className="achievement-header"><div><Link href="/world" className="back-link"><ArrowLeft />Fitness World</Link><span className="eyebrow">Meaningful milestones</span><h1>Achievements</h1><p>Recognition for showing up, improving safely, recovering well, and coming back. No reward requires extreme behavior.</p></div><div className="achievement-total"><Award /><span><strong>{earned.length}/{game.badges.length}</strong><small>badges earned</small></span></div></header>
 
-      {loading ? (
-        <div className="h-40 rounded-2xl bg-white/5 animate-pulse" />
-      ) : (
-        <>
-          {game && (
-            <div className="glass-panel rounded-2xl border border-white/10 p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-tr from-cyan-500 to-purple-500 flex items-center justify-center">
-                    <span className="text-2xl font-black text-white">{game.level}</span>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-widest text-gray-400 font-bold">Level {game.level}</p>
-                    <h2 className="text-xl font-black text-white">{game.levelTitle}</h2>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="flex items-center justify-end gap-1 text-lg font-black text-cyan-300">
-                    <Zap className="h-4 w-4" />
-                    {game.xp} XP
-                  </p>
-                  <p className="text-[11px] text-gray-500">
-                    {earned}/{total} badges
-                  </p>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-[11px] text-gray-400 mb-1">
-                  <span>
-                    {game.xpIntoLevel} / {game.xpForNextLevel} XP
-                  </span>
-                  <span>Next: Lv {game.level + 1}</span>
-                </div>
-                <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 rounded-full"
-                    style={{ width: `${game.progressPct}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+      <section className="achievement-level-hero">
+        <div className="achievement-level-mark"><span>{game.level}</span><i style={{ '--level-ring': `${game.progressPct * 3.6}deg` } as React.CSSProperties} /></div>
+        <div className="achievement-level-copy"><span className="eyebrow">Level {game.level}</span><h2>{game.levelTitle}</h2><p>Your identity level is built from verified fitness actions with daily caps and duplicate protection.</p><div className="achievement-xp-bar"><span><strong>{game.xp.toLocaleString()} total XP</strong><small>{game.xpIntoLevel}/{game.xpForNextLevel} to level {game.level + 1}</small></span><div><i style={{ width: `${game.progressPct}%` }} /></div></div></div>
+        <div className="achievement-rhythm"><div><Flame /><span><strong>{c.currentStreak}</strong><small>current rhythm</small></span></div><div><Shield /><span><strong>{c.longestStreak}</strong><small>longest rhythm</small></span></div><div><CalendarCheck /><span><strong>{c.totalActiveDays}</strong><small>active days</small></span></div></div>
+      </section>
 
-          {c && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard icon={<Flame className="h-5 w-5 text-orange-400" />} label="Current streak" value={`${c.currentStreak}d`} />
-              <StatCard icon={<Award className="h-5 w-5 text-yellow-400" />} label="Longest streak" value={`${c.longestStreak}d`} />
-              <StatCard icon={<TrendIcon trend={c.trend} />} label="This week" value={`${c.weekPct}%`} />
-              <StatCard icon={<CalendarCheck className="h-5 w-5 text-emerald-400" />} label="Active days" value={`${c.totalActiveDays}`} />
-            </div>
-          )}
+      {upcoming.length > 0 && <section className="upcoming-achievement"><span><Sparkles /></span><div><small>Closest unlock</small><h2>{upcoming[0].label}</h2><p>{upcoming[0].description}</p><div><i style={{ width: `${Math.round((upcoming[0].progress / upcoming[0].target) * 100)}%` }} /></div></div><strong>{upcoming[0].progress}/{upcoming[0].target}</strong></section>}
 
-          {game && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-bold text-white">Badges</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {game.badges.map((b) => (
-                  <div
-                    key={b.id}
-                    className={`glass-panel rounded-2xl p-5 border flex items-center gap-4 ${
-                      b.earned ? 'border-yellow-400/30' : 'border-white/8 opacity-60'
-                    }`}
-                  >
-                    <div
-                      className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
-                        b.earned ? 'bg-yellow-400/10 text-yellow-400' : 'bg-white/5 text-gray-500'
-                      }`}
-                    >
-                      {b.earned ? <Award className="h-6 w-6" /> : <Lock className="h-5 w-5" />}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{b.label}</h3>
-                      <p className="text-[11px] text-gray-400 leading-snug">{b.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+      <section className="achievement-library"><div className="world-section-heading"><div><span className="eyebrow">Your badge library</span><h2>Progress worth remembering</h2></div><span className="achievement-safety"><Shield />Consistency over intensity</span></div><div className="achievement-grid">{game.badges.map((badge) => { const pct = Math.min(100, Math.round((badge.progress / badge.target) * 100)); return <article key={badge.id} className={`achievement-card rarity-${badge.rarity} ${badge.earned ? 'is-earned' : 'is-locked'}`}><div className="achievement-badge-visual">{badge.earned ? <Award /> : <LockKeyhole />}<span>{badge.rarity}</span></div><div className="achievement-card-copy"><div><span>{badge.earned ? <><Check />Unlocked</> : `${pct}% complete`}</span><small><Zap />+{badge.xpReward} XP</small></div><h3>{badge.label}</h3><p>{badge.description}</p><div className="badge-progress"><i style={{ width: `${pct}%` }} /></div><small>{badge.progress} / {badge.target}</small></div></article>; })}</div></section>
+
+      <aside className="healthy-streak-note"><Flame /><div><strong>Your rhythm is protected.</strong><p>Rest days, recovery choices, and returning after a missed week are part of a healthy fitness identity. Fitcore never uses shame to preserve a number.</p></div><Link href="/today">View today <ArrowLeft /></Link></aside>
     </div>
   );
-}
-
-function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="glass-panel rounded-2xl p-5 space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{label}</span>
-        {icon}
-      </div>
-      <p className="text-2xl font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function TrendIcon({ trend }: { trend: 'up' | 'flat' | 'down' }) {
-  if (trend === 'up') return <TrendingUp className="h-5 w-5 text-emerald-400" />;
-  if (trend === 'down') return <TrendingDown className="h-5 w-5 text-amber-400" />;
-  return <Minus className="h-5 w-5 text-gray-400" />;
 }

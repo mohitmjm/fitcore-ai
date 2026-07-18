@@ -2,17 +2,24 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowRight, Bot, Check, Clock3, Droplet, Dumbbell, Flame, Footprints, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils } from 'lucide-react';
+import { Activity, ArrowRight, Bot, BookOpen, Check, Clock3, Download, Droplet, Dumbbell, Flame, Footprints, History, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils, Zap } from 'lucide-react';
+import type { ReadinessInput, ReadinessSnapshot } from '@/lib/services/readiness/types';
 
 interface Exercise { name: string; sets: number; reps: string | number }
 interface Consistency { currentStreak: number; longestStreak: number; activeToday: boolean; weekPct: number; monthPct: number; trend: 'up' | 'flat' | 'down'; momentum: number }
-interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency }
+interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency; readiness?: ReadinessSnapshot | null }
 interface HabitState { habit: string; value: number; goal: number; unit: string; label: string; step: number; done: boolean }
 interface Gamification { xp: number; level: number; levelTitle: string; progressPct: number }
+type StoryPreview = { status: 'ready'; snapshotId?: string; weekStart: string; weekEnd: string; viewed: boolean; consistencyPct?: number; standout?: string } | { status: 'forming'; message: string; weekStart: string; weekEnd: string };
+interface MomentumPreview { completedToday?: { title: string; durationMinutes: number; xpReward: number }; quests: { id: string; title: string; durationMinutes: number; recommended: boolean }[]; streak: { current: number; activeDaysLast7: number } }
 type ViewState = 'loading' | 'card' | 'needsPlan' | 'auth' | 'error';
 
 const HABIT_ICONS = { water: Droplet, sleep: Moon, steps: Footprints, meditation: Sparkles, stretch: Activity };
 const LOG_META = { workout: { icon: Dumbbell, label: 'Workout' }, meal: { icon: Utensils, label: 'Meal' }, water: { icon: Droplet, label: 'Water' }, weight: { icon: Scale, label: 'Weight' } };
+const DEFAULT_READINESS: ReadinessInput = { energy: 3, sleepHours: 7, soreness: 2, stress: 2, timeMinutes: 30 };
+const ENERGY_LABELS = ['Empty', 'Low', 'Okay', 'Good', 'Flying'];
+const SORENESS_LABELS = ['Fresh', 'Light', 'Noticeable', 'Very sore', 'Maxed'];
+const STRESS_LABELS = ['Calm', 'Light', 'Some', 'High', 'Overloaded'];
 
 function ProgressRing({ value, label }: { value: number; label: string }) {
   const radius = 42;
@@ -26,28 +33,41 @@ export default function TodayPage() {
   const [card, setCard] = useState<TodayCard | null>(null);
   const [habits, setHabits] = useState<HabitState[]>([]);
   const [game, setGame] = useState<Gamification | null>(null);
+  const [storyPreview, setStoryPreview] = useState<StoryPreview | null>(null);
+  const [momentum, setMomentum] = useState<MomentumPreview | null>(null);
   const [draftCount, setDraftCount] = useState(0);
   const [goal, setGoal] = useState('muscle gain');
   const [busy, setBusy] = useState(false);
   const [showWhy, setShowWhy] = useState(false);
+  const [readinessOpen, setReadinessOpen] = useState(false);
+  const [readinessBusy, setReadinessBusy] = useState(false);
+  const [readinessDraft, setReadinessDraft] = useState<ReadinessInput>(DEFAULT_READINESS);
   const [toast, setToast] = useState('');
 
   const showToast = useCallback((message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2200); }, []);
   const load = useCallback(async () => {
     setView('loading');
     try {
-      const [todayRes, habitsRes, gameRes, draftRes] = await Promise.all([
-        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'),
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+      const [todayRes, habitsRes, gameRes, draftRes, storyRes, momentumRes] = await Promise.all([
+        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'), fetch(`/api/v1/weekly-story?preview=1&period=previous&timezone=${encodeURIComponent(timezone)}`), fetch(`/api/v1/momentum?timezone=${encodeURIComponent(timezone)}`),
       ]);
       if (todayRes.status === 401) { setView('auth'); return; }
       const todayJson = (await todayRes.json()) as { data?: TodayCard | { needsPlan?: boolean } };
       if (!todayJson.data) { setView('error'); return; }
       if ('needsPlan' in todayJson.data && todayJson.data.needsPlan) setView('needsPlan');
-      else { setCard(todayJson.data as TodayCard); setView('card'); }
+      else {
+        const nextCard = todayJson.data as TodayCard;
+        setCard(nextCard);
+        if (nextCard.readiness?.checkin) setReadinessDraft(nextCard.readiness.checkin);
+        setView('card');
+      }
       const habitsJson = (await habitsRes.json()) as { data?: { habits?: HabitState[] } };
       const gameJson = (await gameRes.json()) as { data?: Gamification };
       const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: unknown[] } } };
-      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0);
+      const storyJson = (await storyRes.json().catch(() => ({}))) as { data?: StoryPreview };
+      const momentumJson = (await momentumRes.json().catch(() => ({}))) as { data?: MomentumPreview };
+      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0); setStoryPreview(storyJson.data ?? null); setMomentum(momentumJson.data ?? null);
     } catch { setView('error'); }
   }, []);
 
@@ -70,6 +90,23 @@ export default function TodayPage() {
     const response = await fetch('/api/v1/habits', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ habit, action: 'increment' }) });
     const json = (await response.json()) as { data?: { habits?: HabitState[] } };
     if (json.data?.habits) setHabits(json.data.habits);
+  }
+
+  async function saveReadiness() {
+    setReadinessBusy(true);
+    try {
+      const response = await fetch('/api/v1/readiness', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(readinessDraft) });
+      const json = (await response.json()) as { data?: ReadinessSnapshot };
+      if (!response.ok || !json.data) throw new Error();
+      setReadinessDraft(json.data.checkin);
+      setReadinessOpen(false);
+      await load();
+      showToast(json.data.band === 'push' ? 'You’re cleared for the full session' : 'Today’s session has been adjusted');
+    } catch {
+      showToast('Could not save your readiness check-in');
+    } finally {
+      setReadinessBusy(false);
+    }
   }
 
   const c = card?.consistency;
@@ -96,6 +133,37 @@ export default function TodayPage() {
 
           <aside className="consistency-card"><div className="consistency-title"><span className="eyebrow">Consistency</span><Flame /></div>{c ? <><div className="consistency-main"><ProgressRing value={c.monthPct} label="this month" /><div><strong>{c.currentStreak}</strong><span>day streak</span><small>Personal best: {c.longestStreak} days</small></div></div><div className="week-progress"><span><small>This week</small><strong>{c.weekPct}%</strong></span><div><i style={{ width: `${c.weekPct}%` }} /></div></div><p className="trend-copy">{c.activeToday ? 'You have already moved today.' : c.trend === 'up' ? 'Your rhythm is improving.' : c.trend === 'down' ? 'A short session can protect your rhythm.' : 'You are holding a steady rhythm.'}</p></> : <p className="empty-copy">Complete your first activity to start tracking consistency.</p>}</aside>
         </section>
+
+        <section className={`readiness-card ${card.readiness ? `is-${card.readiness.band}` : ''}`} aria-labelledby="readiness-title">
+          <div className="readiness-summary">
+            <span className="readiness-icon"><Activity /></span>
+            <div><span className="eyebrow">Adaptive training</span><h2 id="readiness-title">{card.readiness?.title ?? 'How ready do you feel?'}</h2><p>{card.readiness?.message ?? 'A quick check-in makes today’s workout match your actual energy, recovery, and time.'}</p></div>
+            {card.readiness ? <div className="readiness-score" aria-label={`Readiness score ${card.readiness.score} out of 100`}><strong>{card.readiness.score}</strong><small>ready</small></div> : null}
+            <button type="button" className="readiness-toggle" onClick={() => setReadinessOpen((current) => !current)}>{readinessOpen ? 'Close' : card.readiness ? 'Update' : 'Check in'}</button>
+          </div>
+
+          {readinessOpen && <form className="readiness-form" onSubmit={(event) => { event.preventDefault(); void saveReadiness(); }}>
+            <div className="readiness-field"><span>Energy</span><div className="readiness-scale">{ENERGY_LABELS.map((label, index) => { const value = (index + 1) as ReadinessInput['energy']; return <button type="button" key={label} className={readinessDraft.energy === value ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, energy: value }))} aria-pressed={readinessDraft.energy === value}><b>{value}</b><small>{label}</small></button>; })}</div></div>
+            <div className="readiness-field"><span>Sleep last night</span><div className="readiness-options">{[[4, 'Under 5h'], [6, '5–6h'], [7, '7–8h'], [9, '8h+']].map(([hours, label]) => <button type="button" key={label} className={readinessDraft.sleepHours === hours ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, sleepHours: hours as number }))} aria-pressed={readinessDraft.sleepHours === hours}>{label}</button>)}</div></div>
+            <div className="readiness-field"><span>Muscle soreness</span><div className="readiness-options readiness-options-wide">{SORENESS_LABELS.map((label, index) => { const value = (index + 1) as ReadinessInput['soreness']; return <button type="button" key={label} className={readinessDraft.soreness === value ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, soreness: value }))} aria-pressed={readinessDraft.soreness === value}>{label}</button>; })}</div></div>
+            <div className="readiness-field"><span>Stress</span><div className="readiness-options readiness-options-wide">{STRESS_LABELS.map((label, index) => { const value = (index + 1) as ReadinessInput['stress']; return <button type="button" key={label} className={readinessDraft.stress === value ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, stress: value }))} aria-pressed={readinessDraft.stress === value}>{label}</button>; })}</div></div>
+            <div className="readiness-field"><span>Time you have</span><div className="readiness-options">{[15, 30, 45, 60].map((minutes) => <button type="button" key={minutes} className={readinessDraft.timeMinutes === minutes ? 'active' : ''} onClick={() => setReadinessDraft((current) => ({ ...current, timeMinutes: minutes as ReadinessInput['timeMinutes'] }))} aria-pressed={readinessDraft.timeMinutes === minutes}>{minutes} min</button>)}</div></div>
+            <div className="readiness-form-footer"><small>Training guidance only — not a medical score.</small><button type="submit" className="button-primary" disabled={readinessBusy}>{readinessBusy ? 'Adapting…' : 'Adapt my session'}<ArrowRight /></button></div>
+          </form>}
+        </section>
+
+        {momentum ? <aside className={`momentum-entry ${momentum.completedToday ? 'is-complete' : ''}`}>
+          <span className="momentum-entry-icon"><Zap /></span>
+          <div><span className="eyebrow">Momentum Quest</span><h2>{momentum.completedToday ? 'Today’s momentum is protected' : momentum.quests.find((quest) => quest.recommended)?.title ?? 'Choose one small win'}</h2><p>{momentum.completedToday ? `${momentum.completedToday.durationMinutes} minutes completed · +${momentum.completedToday.xpReward} XP` : `${momentum.quests.find((quest) => quest.recommended)?.durationMinutes ?? 8} minutes · strength, movement, or recovery all count`}</p></div>
+          <div className="momentum-entry-stat"><strong>{momentum.streak.current}</strong><small>day rhythm</small></div>
+          <Link href="/momentum">{momentum.completedToday ? 'View path' : 'Choose quest'}<ArrowRight /></Link>
+        </aside> : null}
+
+        {storyPreview ? <aside className={`weekly-story-entry ${storyPreview.status === 'forming' ? 'is-forming' : ''}`}>
+          <span className="weekly-story-icon"><BookOpen /></span>
+          <div><span className="eyebrow">Weekly Story</span><h2>{storyPreview.status === 'ready' ? storyPreview.viewed ? 'Your week is ready to replay' : 'Your week in FitCore is ready' : 'Your first story is taking shape'}</h2><p>{storyPreview.status === 'ready' ? storyPreview.standout ?? `${storyPreview.consistencyPct ?? 0}% of your chosen commitment, told honestly.` : storyPreview.message}</p></div>
+          {storyPreview.status === 'ready' ? <div className="weekly-story-actions"><Link href={`/story?weekStart=${storyPreview.weekStart}`}>{storyPreview.viewed ? 'Replay' : 'View Story'}<ArrowRight /></Link>{storyPreview.viewed ? <><Link href={`/story?weekStart=${storyPreview.weekStart}&share=1`}><Download />Share card</Link><Link href="/story?archive=1"><History />Past stories</Link></> : null}</div> : null}
+        </aside> : null}
 
         {card.insight && <aside className="coach-insight"><span><Bot /></span><div><small>Fitcore AI recommendation</small><p>{card.insight}</p></div><Link href="/chat">Ask coach <ArrowRight /></Link></aside>}
 

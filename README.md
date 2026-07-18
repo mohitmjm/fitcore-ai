@@ -10,7 +10,9 @@ travel, motivation dips), and keeps you accountable on web — and (soon) WhatsA
 
 - **Next.js 15** (App Router) · **TypeScript** · **Tailwind CSS v4**
 - **Clerk** — authentication
-- **MongoDB Atlas** — data (with an in-memory dev fallback when `MONGODB_URI` is unset)
+- **Supabase** — Clerk-keyed user/profile persistence
+- **MongoDB Atlas** — legacy domain data while migration continues (with an in-memory dev fallback
+  when `MONGODB_URI` is unset)
 - **AI provider layer** — Gemini / OpenAI / Claude behind one interface, with a deterministic
   offline mock so everything runs without keys
 - **Recharts** (lazy-loaded) · **Vitest** (policy unit tests)
@@ -18,9 +20,15 @@ travel, motivation dips), and keeps you accountable on web — and (soon) WhatsA
 ## Key features
 
 - **Adaptive Today screen** — one screen answering "what should I do right now?"
+- **Momentum Quests** — three readiness-aware daily micro-quests, orange-black Spice Mode, a safe shuffle picker, guided focus mode, equal recovery XP, and an opt-in Crew Boost
+- **FitCore Weekly Story** — adaptive, privacy-safe weekly recaps with an archive, 9:16 image export, native sharing, and deterministic offline copy
 - **Coach Memory** — learns goals, patterns, and motivation; reflects on your behavior
 - **Consistency engine** — streaks, 7/28-day rhythm, trend, momentum (the North Star)
 - **Habits**, **gamification** (XP / levels / badges), and an **Achievements** screen
+- **Fitcore Fitness World** — real-activity missions, progression zones, boss battles, avatar, and future ranges
+- **Procedural exercise motion** — full catalog coverage with controls and muscle activation
+- **Guided workout mode** — set logging, rest timing, pain safety, adaptive feedback, and completion summary
+- **Local-first Form Coach** — explicit camera flow and pose-analysis-ready architecture
 - **AI coach chat**, **adaptive workout & meal plans**, **AI meal-photo analysis**
 - **WhatsApp-ready** channel + event layer (architecture in place; not wired yet)
 
@@ -45,6 +53,7 @@ key from `.env.example` and restart to light up that integration. Confirm AI wir
 | `npm run start` | Run the production build |
 | `npm run lint` | ESLint |
 | `npm run test` | Vitest (pure-policy unit tests) |
+| `npm run validate:animations` | Validate full exercise-to-animation coverage |
 
 ## Architecture
 

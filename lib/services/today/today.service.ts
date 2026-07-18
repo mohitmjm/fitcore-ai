@@ -4,6 +4,7 @@ import { PlanService } from '@/lib/services/plan/plan.service';
 import { ConsistencyService } from '@/lib/services/consistency/consistency.service';
 import { decideTodayShape } from '@/lib/policy/today';
 import { buildInsight } from '@/lib/policy/insight';
+import { ReadinessService } from '@/lib/services/readiness/readiness.service';
 import type { CheckinInput, TodayCard } from './types';
 
 const DAY_MS = 86_400_000;
@@ -33,10 +34,11 @@ export type TodayResult = TodayCard | { needsPlan: true };
 export async function getToday(ctx: AuthContext, checkin?: CheckinInput): Promise<TodayResult> {
   const today = todayISO();
 
-  const [dates, plan, existingMemory] = await Promise.all([
+  const [dates, plan, existingMemory, storedReadiness] = await Promise.all([
     ConsistencyService.getActivityDates(ctx.clerkUserId),
     PlanService.getCurrent(ctx.clerkUserId),
     MemoryService.getMemory(ctx.clerkUserId),
+    ReadinessService.getToday(ctx),
   ]);
 
   // Reuses `dates` (no second signals scan) and `existingMemory` (no second memory read);
@@ -51,7 +53,7 @@ export async function getToday(ctx: AuthContext, checkin?: CheckinInput): Promis
   const card = decideTodayShape(memory, plan, {
     date: today,
     daysSinceLastActivity,
-    checkin,
+    checkin: checkin ?? storedReadiness?.checkin,
   });
 
   const insight = buildInsight({
@@ -76,5 +78,6 @@ export async function getToday(ctx: AuthContext, checkin?: CheckinInput): Promis
       trend: consistency.trend,
       momentum: consistency.momentum,
     },
+    readiness: storedReadiness,
   };
 }

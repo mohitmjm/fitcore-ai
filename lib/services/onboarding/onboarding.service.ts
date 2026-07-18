@@ -28,6 +28,14 @@ export const OnboardingInput = z.object({
  * first Living Plan. See docs/architecture/01-prd.md A1.
  */
 export async function completeOnboarding(ctx: AuthContext, raw: unknown) {
+  const existingUser = await UsersService.getByClerkId(ctx.clerkUserId);
+  if (existingUser?.onboardingCompletedAt || existingUser?.profile?.goal) {
+    const currentPlan = await PlanService.getCurrent(ctx.clerkUserId);
+    if (currentPlan) {
+      return { onboarded: true, planDays: currentPlan.days.length, alreadyComplete: true };
+    }
+  }
+
   const input = OnboardingInput.parse(raw);
   const dob = input.dob ?? (input.age ? `${new Date().getUTCFullYear() - input.age}-01-01` : undefined);
 
@@ -76,5 +84,5 @@ export async function completeOnboarding(ctx: AuthContext, raw: unknown) {
     occurredAt: new Date(),
   });
 
-  return { onboarded: true, planDays: plan.days.length };
+  return { onboarded: true, planDays: plan.days.length, alreadyComplete: false };
 }

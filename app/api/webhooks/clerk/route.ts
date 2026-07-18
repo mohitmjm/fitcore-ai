@@ -21,7 +21,7 @@ interface ClerkEvent {
 }
 
 /**
- * Clerk → MongoDB sync. Verifies the Svix signature, then upserts/soft-deletes the user
+ * Clerk → Supabase profile sync. Verifies the Svix signature, then upserts/soft-deletes the user
  * profile. See docs/architecture/07-clerk-auth.md §5.
  */
 export async function POST(req: Request): Promise<Response> {

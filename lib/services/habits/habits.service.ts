@@ -42,6 +42,11 @@ function signalTypeFor(habit: HabitType): SignalType {
  * logged for the day, so habits feed the consistency engine without spamming the signal stream.
  */
 export const HabitsService = {
+  async getRange(clerkUserId: string, start: string, end: string): Promise<HabitLogDoc[]> {
+    const docs = await repo.list(clerkUserId, { date: { $gte: start, $lte: end } });
+    return docs.sort((a, b) => a.date.localeCompare(b.date));
+  },
+
   async getDay(ctx: AuthContext, date: string = todayISO()): Promise<HabitDay> {
     const docs = await repo.list(ctx.clerkUserId, { date });
     const byHabit = new Map<HabitType, number>(docs.map((d) => [d.habit, d.value]));

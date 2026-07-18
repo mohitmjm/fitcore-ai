@@ -18,6 +18,8 @@ export default function robots(): MetadataRoute.Robots {
           '/exercises',
           '/diet',
           '/progress',
+          '/momentum',
+          '/story',
           '/achievements',
           '/chat',
           '/profile',

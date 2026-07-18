@@ -17,5 +17,14 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
       { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
+    shortcuts: [
+      {
+        name: 'Start a Momentum Quest',
+        short_name: 'Momentum',
+        description: 'Choose one readiness-aware daily fitness quest.',
+        url: '/momentum',
+        icons: [{ src: '/icon.png', sizes: '512x512', type: 'image/png' }],
+      },
+    ],
   };
 }

@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
 
 /**
  * Clerk authentication middleware (Next.js 15). Protects app routes; leaves marketing, the
@@ -14,11 +15,20 @@ const isPublicRoute = createRouteMatcher([
   '/api(.*)',
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
+const protectedMiddleware = clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
 });
+
+function localDevMiddleware() {
+  return NextResponse.next();
+}
+
+// Keep the documented zero-credential local preview working. Production builds are expected to
+// provide Clerk keys and therefore use the protected branch.
+const localPreview = process.env.FITCORE_PREVIEW === '1';
+export default process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && !localPreview ? protectedMiddleware : localDevMiddleware;
 
 export const config = {
   matcher: [

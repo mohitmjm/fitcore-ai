@@ -14,7 +14,12 @@ export type DomainEvent =
   | { type: 'signal.recorded'; clerkUserId: string; signalType: string }
   | { type: 'plan.generated'; clerkUserId: string }
   | { type: 'streak.milestone'; clerkUserId: string; streak: number }
-  | { type: 'nudge.due'; clerkUserId: string; reason: string };
+  | { type: 'nudge.due'; clerkUserId: string; reason: string }
+  | { type: 'weekly_story.generated'; clerkUserId: string; snapshotId: string; weekStart: string; version: number }
+  | { type: 'weekly_story.viewed'; clerkUserId: string; snapshotId: string; weekStart: string }
+  | { type: 'weekly_story.downloaded'; clerkUserId: string; snapshotId: string; weekStart: string }
+  | { type: 'weekly_story.shared'; clerkUserId: string; snapshotId: string; weekStart: string; method: 'share' | 'copy' }
+  | { type: 'momentum_quest.completed'; clerkUserId: string; date: string; questId: string; kind: 'strength' | 'movement' | 'recovery' };
 
 export type EventType = DomainEvent['type'];
 export type EventHandler = (event: DomainEvent) => void | Promise<void>;

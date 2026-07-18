@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Bookmark, BookmarkCheck, Check, ChevronRight, Clock3, Dumbbell, HeartPulse, Info, Plus, ShieldAlert, Sparkles, Wind } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Camera, Check, ChevronRight, Clock3, Dumbbell, HeartPulse, Info, Plus, ShieldAlert, Sparkles, Wind } from 'lucide-react';
 import AddToWorkoutSheet from '@/components/exercises/AddToWorkoutSheet';
 import ExerciseCard from '@/components/exercises/ExerciseCard';
 import MovementDemo from '@/components/exercises/MovementDemo';
@@ -87,6 +87,7 @@ export default function ExerciseDetailPage() {
           <div className="detail-actions">
             <button type="button" className="button-primary" onClick={() => setAddExercise(exercise)}><Plus />Add to workout</button>
             <button type="button" className="button-secondary" disabled={savingId === exercise.id} onClick={() => toggleSaved(exercise)}>{saved ? <BookmarkCheck /> : <Bookmark />}{saved ? 'Saved' : 'Save'}</button>
+            <Link href={`/form-coach?exercise=${exercise.slug}`} className="button-secondary"><Camera />Form coach</Link>
           </div>
           <Link href={`/chat?prompt=${aiPrompt}`} className="ask-ai-row"><span><Sparkles /></span><div><strong>Ask Fitcore AI about this exercise</strong><small>Personalized to your profile and limitations</small></div><ChevronRight /></Link>
         </div>

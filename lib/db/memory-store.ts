@@ -29,9 +29,13 @@ function matchesFilter(doc: Doc, filter: Doc): boolean {
       const c = cond as Record<string, unknown>;
       if ('$ne' in c) {
         if (value === c.$ne) return false;
-        continue;
       }
-      // Unsupported operators are treated as "no constraint" in dev.
+      const comparable = toComparable(value);
+      if ('$gte' in c && comparable < toComparable(c.$gte)) return false;
+      if ('$gt' in c && comparable <= toComparable(c.$gt)) return false;
+      if ('$lte' in c && comparable > toComparable(c.$lte)) return false;
+      if ('$lt' in c && comparable >= toComparable(c.$lt)) return false;
+      if ('$in' in c && Array.isArray(c.$in) && !c.$in.includes(value)) return false;
       continue;
     }
     if (value !== cond) return false;
@@ -91,9 +95,13 @@ class MemoryCollection {
   ): Promise<{ matchedCount: number; modifiedCount: number; upsertedCount: number }> {
     const set = (update.$set as Doc) ?? {};
     const setOnInsert = (update.$setOnInsert as Doc) ?? {};
+    const increment = (update.$inc as Record<string, number>) ?? {};
     const existing = this.docs.find((d) => matchesFilter(d, filter));
     if (existing) {
       Object.assign(existing, set);
+      for (const [key, delta] of Object.entries(increment)) {
+        existing[key] = Number(existing[key] ?? 0) + delta;
+      }
       return { matchedCount: 1, modifiedCount: 1, upsertedCount: 0 };
     }
     if (options?.upsert) {

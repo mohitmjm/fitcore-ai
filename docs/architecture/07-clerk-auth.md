@@ -30,9 +30,9 @@ Clerk Expo/React Native SDK; Flutter via Clerk session + **JWT templates**. Nati
 call `getToken()` and send `Authorization: Bearer <jwt>`; REST `/api/v1` accepts it. Same user,
 same `clerkUserId`.
 
-## 5. Clerk → MongoDB sync (webhooks, Svix-signed)
+## 5. Clerk → Supabase profile sync (webhooks, Svix-signed)
 `POST /api/webhooks/clerk`, verify Svix signature, then:
-- `user.created` → upsert `users` doc (clerkUserId, email, name, role=user), create
+- `user.created` → upsert `clerk_profiles` row (clerkUserId, email, name, role=user), create
   `coach_memory` shell + `notification_prefs`.
 - `user.updated` → sync email/name/image.
 - `user.deleted` → soft-delete + cleanup per retention policy.

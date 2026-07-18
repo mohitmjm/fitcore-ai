@@ -1,12 +1,10 @@
-import type { ObjectId } from 'mongodb';
 import type { Plan, Role } from '@/lib/core/context';
 
 /**
- * Domain profile document. Authentication is owned by Clerk; this is keyed by `clerkUserId`
- * and synced from Clerk via webhooks. See docs/architecture/03 §5.1.
+ * Domain profile record. Authentication is owned by Clerk; durable profile data is keyed by
+ * `clerkUserId` in Supabase and synced from Clerk via webhooks. See docs/architecture/07.
  */
 export interface UserDoc {
-  _id?: ObjectId;
   clerkUserId: string;
   email: string;
   name: string;

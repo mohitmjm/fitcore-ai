@@ -3,6 +3,7 @@ import type {
   Document,
   Filter,
   OptionalUnlessRequiredId,
+  Sort,
   UpdateFilter,
 } from 'mongodb';
 import { getDb } from './mongo';
@@ -38,6 +39,17 @@ export class OwnedRepository<T extends OwnedDoc> {
     const coll = await this.coll();
     const scoped = { ...filter, clerkUserId, isActive: { $ne: false } } as unknown as Filter<T>;
     return (await coll.find(scoped).toArray()) as T[];
+  }
+
+  async listLimited(
+    clerkUserId: string,
+    filter: Filter<T>,
+    sort: Sort,
+    limit: number,
+  ): Promise<T[]> {
+    const coll = await this.coll();
+    const scoped = { ...filter, clerkUserId, isActive: { $ne: false } } as unknown as Filter<T>;
+    return (await coll.find(scoped).sort(sort).limit(Math.max(1, limit)).toArray()) as T[];
   }
 
   async findOne(clerkUserId: string, filter: Filter<T> = {}): Promise<T | null> {

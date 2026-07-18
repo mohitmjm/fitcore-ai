@@ -15,9 +15,11 @@ import {
   Home,
   LogOut,
   Moon,
+  Orbit,
   Search,
   Settings,
   Sun,
+  Zap,
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,14 +31,16 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { name: 'Today', href: '/today', icon: Home, mobile: true },
-  { name: 'Body & Exercises', href: '/exercises', icon: Search, mobile: true },
-  { name: 'Workouts', href: '/workout', icon: Dumbbell },
-  { name: 'AI Coach', href: '/chat', icon: Bot, mobile: true },
+  { name: 'Momentum', href: '/momentum', icon: Zap, mobile: true },
+  { name: 'Explore', href: '/exercises', icon: Search, mobile: true },
+  { name: 'Train', href: '/workout', icon: Dumbbell, mobile: true },
+  { name: 'World', href: '/world', icon: Orbit },
+  { name: 'AI Coach', href: '/chat', icon: Bot },
   { name: 'Nutrition', href: '/diet', icon: Apple },
-  { name: 'Progress', href: '/progress', icon: BarChart3, mobile: true },
+  { name: 'Progress', href: '/progress', icon: BarChart3 },
 ];
 
-const NO_SHELL = ['/', '/login', '/welcome'];
+const NO_SHELL = ['/', '/login', '/welcome', '/story'];
 function isNoShell(pathname: string): boolean {
   return NO_SHELL.includes(pathname) || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
 }
@@ -54,6 +58,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   const shellVisible = !clerkConfigured || Boolean(isSignedIn);
+  const appRoute = !isNoShell(pathname);
 
   useEffect(() => {
     setMounted(true);
@@ -64,16 +69,16 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   }, []);
 
   useEffect(() => {
-    if (!clerkConfigured || !isLoaded || !isSignedIn || pathname === '/welcome') return;
+    if (!clerkConfigured || !isLoaded || !isSignedIn || !appRoute) return;
     let active = true;
-    fetch('/api/v1/me')
+    fetch('/api/v1/me', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
       .then((json: { data?: { onboarded?: boolean } } | null) => {
         if (active && json?.data && !json.data.onboarded) router.replace('/welcome');
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [clerkConfigured, isLoaded, isSignedIn, pathname, router]);
+  }, [appRoute, clerkConfigured, isLoaded, isSignedIn, router]);
 
   const mobileItems = useMemo(() => [
     ...NAV_ITEMS.filter((item) => item.mobile),
@@ -87,7 +92,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     document.documentElement.classList.toggle('light', next === 'light');
   }
 
-  if (!mounted || isNoShell(pathname) || !shellVisible) {
+  if (!mounted || !appRoute || !shellVisible) {
     return <div className="min-h-screen"><main>{children}</main></div>;
   }
 
@@ -141,7 +146,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
-          return <Link key={item.href} href={item.href} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><span><Icon />{active && <i />}</span><small>{item.name === 'Body & Exercises' ? 'Exercises' : item.name === 'AI Coach' ? 'Coach' : item.name}</small></Link>;
+          return <Link key={item.href} href={item.href} className={active ? 'active' : ''} aria-current={active ? 'page' : undefined}><span><Icon />{active && <i />}</span><small>{item.name}</small></Link>;
         })}
       </nav>
     </div>

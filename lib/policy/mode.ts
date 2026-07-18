@@ -25,7 +25,9 @@ export function detectMode(memory: CoachMemory | null, signals: TodaySignals): C
   if (
     c &&
     ((typeof c.energy === 'number' && c.energy <= 2) ||
-      (typeof c.sleepHours === 'number' && c.sleepHours < 5))
+      (typeof c.sleepHours === 'number' && c.sleepHours < 5) ||
+      (typeof c.soreness === 'number' && c.soreness >= 4) ||
+      (typeof c.stress === 'number' && c.stress >= 5))
   ) {
     return 'deload';
   }
