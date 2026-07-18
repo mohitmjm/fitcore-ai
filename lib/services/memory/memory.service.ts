@@ -49,6 +49,31 @@ export const MemoryService = {
     return coll.findOne({ clerkUserId });
   },
 
+  /** Bounded owner-scoped signal window for weekly projections and other snapshots. */
+  async getSignalsBetween(
+    clerkUserId: string,
+    from: Date,
+    toExclusive: Date,
+    limit = 2000,
+  ): Promise<MemorySignal[]> {
+    const coll = await getCollection<MemorySignal>(SIGNALS);
+    return coll
+      .find({ clerkUserId, occurredAt: { $gte: from, $lt: toExclusive } })
+      .sort({ occurredAt: -1 })
+      .limit(Math.min(2000, Math.max(1, limit)))
+      .toArray();
+  },
+
+  /** Same cap as the gamification service, ending at a historical snapshot boundary. */
+  async getSignalsThrough(clerkUserId: string, toExclusive: Date, limit = 2000): Promise<MemorySignal[]> {
+    const coll = await getCollection<MemorySignal>(SIGNALS);
+    return coll
+      .find({ clerkUserId, occurredAt: { $lt: toExclusive } })
+      .sort({ occurredAt: -1 })
+      .limit(Math.min(2000, Math.max(1, limit)))
+      .toArray();
+  },
+
   /** Whole days since the user's most recent signal (0 if none yet). Drives comeback detection. */
   async daysSinceLastActivity(clerkUserId: string): Promise<number> {
     const coll = await getCollection<MemorySignal>(SIGNALS);

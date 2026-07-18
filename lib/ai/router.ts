@@ -10,6 +10,7 @@ export type AITask =
   | 'nudge'
   | 'coach_chat'
   | 'weekly_story'
+  | 'weekly_story_narrative'
   | 'meal_vision'
   | 'plan_json'
   | 'insight';

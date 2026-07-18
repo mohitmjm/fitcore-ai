@@ -32,6 +32,19 @@ export async function ensureIndexes(db: Db): Promise<void> {
     db.collection('progress_photos').createIndex({ clerkUserId: 1, takenAt: -1 }, { name: 'user_recent' }),
     db.collection('saved_exercises').createIndex({ clerkUserId: 1, exerciseId: 1 }, { name: 'user_exercise' }),
     db.collection('workout_drafts').createIndex({ clerkUserId: 1, target: 1, targetName: 1 }, { name: 'user_target' }),
+    // Immutable Weekly Story revisions and bounded archive retrieval.
+    db.collection('weekly_story_snapshots').createIndex(
+      { clerkUserId: 1, weekStart: 1, version: 1 },
+      { name: 'user_week_version', unique: true },
+    ),
+    db.collection('weekly_story_snapshots').createIndex(
+      { clerkUserId: 1, generatedAt: -1 },
+      { name: 'user_story_history' },
+    ),
+    db.collection('weekly_story_snapshots').createIndex(
+      { clerkUserId: 1, snapshotId: 1 },
+      { name: 'user_snapshot', unique: true },
+    ),
     // WhatsApp / channel identity resolution.
     db.collection('channel_contacts').createIndex({ channel: 1, externalId: 1 }, { name: 'channel_external' }),
   ]);

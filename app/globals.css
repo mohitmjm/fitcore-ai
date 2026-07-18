@@ -1737,6 +1737,27 @@ a { color: inherit; text-decoration: none; }
   .form-coach-page * { animation: none !important; }
 }
 
+/* Weekly Story entry point ------------------------------------------------------------- */
+.weekly-story-entry { position: relative; display: grid; grid-template-columns: 42px minmax(0,1fr); align-items: center; gap: 12px; overflow: hidden; padding: 15px; border: 1px solid rgba(199,246,90,.2); border-radius: 17px; background: radial-gradient(circle at 95% 0,rgba(199,246,90,.12),transparent 38%),linear-gradient(125deg,rgba(199,246,90,.055),var(--surface)); }
+.weekly-story-entry::after { position: absolute; top: -70px; right: -35px; width: 150px; height: 150px; border: 1px solid rgba(199,246,90,.12); border-radius: 50%; content: ''; pointer-events: none; }
+.weekly-story-entry.is-forming { border-color: var(--line); background: linear-gradient(125deg,rgba(141,156,255,.04),var(--surface)); }
+.weekly-story-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; background: rgba(199,246,90,.11); color: var(--primary); }
+.is-forming .weekly-story-icon { background: rgba(141,156,255,.1); color: var(--secondary); }
+.weekly-story-icon svg { width: 19px; }
+.weekly-story-entry h2 { margin-top: 3px; color: var(--foreground); font-size: 14px; font-weight: 830; letter-spacing: -.02em; }
+.weekly-story-entry p { margin-top: 4px; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.weekly-story-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.weekly-story-actions a { display: flex; min-height: 36px; align-items: center; justify-content: center; gap: 5px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted-strong); font-size: 7px; font-weight: 740; }
+.weekly-story-actions a:first-child { border-color: rgba(199,246,90,.3); background: var(--primary); color: var(--primary-ink); }
+.weekly-story-actions svg { width: 11px; }
+@media (min-width: 760px) {
+  .weekly-story-entry { grid-template-columns: 48px minmax(0,1fr) auto; padding: 17px; }
+  .weekly-story-icon { width: 48px; height: 48px; }
+  .weekly-story-entry h2 { font-size: 16px; }
+  .weekly-story-entry p { font-size: 9px; }
+  .weekly-story-actions { grid-column: auto; justify-content: flex-end; }
+}
+
 /* Workout safety, feedback, and completion --------------------------------------------- */
 .active-demo .now-playing { top: 12px; bottom: auto; right: 12px; left: auto; z-index: 4; width: min(210px,55%); }
 .active-secondary-actions { grid-template-columns: repeat(2,1fr); }

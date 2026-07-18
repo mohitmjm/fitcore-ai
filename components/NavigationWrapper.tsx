@@ -38,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Progress', href: '/progress', icon: BarChart3 },
 ];
 
-const NO_SHELL = ['/', '/login', '/welcome'];
+const NO_SHELL = ['/', '/login', '/welcome', '/story'];
 function isNoShell(pathname: string): boolean {
   return NO_SHELL.includes(pathname) || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
 }

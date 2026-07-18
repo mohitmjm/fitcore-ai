@@ -30,6 +30,20 @@ export const AddLogInput = z.object({
 });
 
 export const ProgressService = {
+  async getLogsWindow(clerkUserId: string, start: string, end: string): Promise<ProgressLogDoc[]> {
+    const logs = await logsRepo.list(clerkUserId, { recordedDate: { $gte: start, $lte: end } });
+    return logs.sort((a, b) => a.recordedDate.localeCompare(b.recordedDate));
+  },
+
+  async getRecentPhotosThrough(clerkUserId: string, end: string, limit = 8): Promise<ProgressPhotoDoc[]> {
+    return photosRepo.listLimited(
+      clerkUserId,
+      { takenAt: { $lte: `${end}T23:59:59.999Z` } },
+      { takenAt: -1 },
+      Math.min(12, Math.max(2, limit)),
+    );
+  },
+
   async getLogs(clerkUserId: string): Promise<ProgressLogDoc[]> {
     const logs = await logsRepo.list(clerkUserId);
     return logs.sort((a, b) => a.recordedDate.localeCompare(b.recordedDate));

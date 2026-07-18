@@ -15,7 +15,7 @@ const NAV_ITEMS = [
   { name: 'Nutrition', href: '/diet', icon: Apple },
   { name: 'Progress', href: '/progress', icon: BarChart3 },
 ];
-const NO_SHELL = ['/', '/login', '/welcome'];
+const NO_SHELL = ['/', '/login', '/welcome', '/story'];
 function active(pathname: string, href: string) { return pathname === href || (href !== '/today' && pathname.startsWith(`${href}/`)); }
 function noShell(pathname: string) { return NO_SHELL.includes(pathname) || pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up'); }
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import type { ChartPoint } from './ProgressChart';
 import {
   LineChart as LineChartIcon,
@@ -13,6 +14,7 @@ import {
   Activity,
   TrendingDown,
   Upload,
+  BookOpen,
 } from 'lucide-react';
 
 // Recharts (~110 kB) is loaded only when this page mounts, not in the initial route bundle.
@@ -141,13 +143,16 @@ export default function ProgressPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowLogModal(true)}
-          className="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 hover:scale-[1.02] text-white font-semibold text-sm transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
-        >
-          <Plus className="h-4 w-4" />
-          Log Today&apos;s Metrics
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/story?archive=1" className="px-4 py-3 rounded-xl border border-white/10 bg-white/5 text-gray-200 font-semibold text-sm transition-all flex items-center gap-2 hover:bg-white/10"><BookOpen className="h-4 w-4" />Weekly Stories</Link>
+          <button
+            onClick={() => setShowLogModal(true)}
+            className="px-5 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 hover:scale-[1.02] text-white font-semibold text-sm transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+          >
+            <Plus className="h-4 w-4" />
+            Log Today&apos;s Metrics
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

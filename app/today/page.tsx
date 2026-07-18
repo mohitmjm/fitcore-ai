@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Activity, ArrowRight, Bot, Check, Clock3, Droplet, Dumbbell, Flame, Footprints, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils } from 'lucide-react';
+import { Activity, ArrowRight, Bot, BookOpen, Check, Clock3, Download, Droplet, Dumbbell, Flame, Footprints, History, Moon, Plus, RefreshCw, Scale, Sparkles, Trophy, Utensils } from 'lucide-react';
 import type { ReadinessInput, ReadinessSnapshot } from '@/lib/services/readiness/types';
 
 interface Exercise { name: string; sets: number; reps: string | number }
@@ -10,6 +10,7 @@ interface Consistency { currentStreak: number; longestStreak: number; activeToda
 interface TodayCard { date: string; mode: string; greeting: string; primaryAction: { kind: string; title: string; durationMin: number; exercises: Exercise[] }; why: string; quickLogs: string[]; momentum: { label: string; level: number }; insight?: string; consistency?: Consistency; readiness?: ReadinessSnapshot | null }
 interface HabitState { habit: string; value: number; goal: number; unit: string; label: string; step: number; done: boolean }
 interface Gamification { xp: number; level: number; levelTitle: string; progressPct: number }
+type StoryPreview = { status: 'ready'; snapshotId?: string; weekStart: string; weekEnd: string; viewed: boolean; consistencyPct?: number; standout?: string } | { status: 'forming'; message: string; weekStart: string; weekEnd: string };
 type ViewState = 'loading' | 'card' | 'needsPlan' | 'auth' | 'error';
 
 const HABIT_ICONS = { water: Droplet, sleep: Moon, steps: Footprints, meditation: Sparkles, stretch: Activity };
@@ -31,6 +32,7 @@ export default function TodayPage() {
   const [card, setCard] = useState<TodayCard | null>(null);
   const [habits, setHabits] = useState<HabitState[]>([]);
   const [game, setGame] = useState<Gamification | null>(null);
+  const [storyPreview, setStoryPreview] = useState<StoryPreview | null>(null);
   const [draftCount, setDraftCount] = useState(0);
   const [goal, setGoal] = useState('muscle gain');
   const [busy, setBusy] = useState(false);
@@ -44,8 +46,9 @@ export default function TodayPage() {
   const load = useCallback(async () => {
     setView('loading');
     try {
-      const [todayRes, habitsRes, gameRes, draftRes] = await Promise.all([
-        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'),
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+      const [todayRes, habitsRes, gameRes, draftRes, storyRes] = await Promise.all([
+        fetch('/api/v1/today'), fetch('/api/v1/habits'), fetch('/api/v1/gamification'), fetch('/api/v1/workout-builder'), fetch(`/api/v1/weekly-story?preview=1&period=previous&timezone=${encodeURIComponent(timezone)}`),
       ]);
       if (todayRes.status === 401) { setView('auth'); return; }
       const todayJson = (await todayRes.json()) as { data?: TodayCard | { needsPlan?: boolean } };
@@ -60,7 +63,8 @@ export default function TodayPage() {
       const habitsJson = (await habitsRes.json()) as { data?: { habits?: HabitState[] } };
       const gameJson = (await gameRes.json()) as { data?: Gamification };
       const draftJson = (await draftRes.json()) as { data?: { workout?: { exercises?: unknown[] } } };
-      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0);
+      const storyJson = (await storyRes.json().catch(() => ({}))) as { data?: StoryPreview };
+      setHabits(habitsJson.data?.habits ?? []); setGame(gameJson.data ?? null); setDraftCount(draftJson.data?.workout?.exercises?.length ?? 0); setStoryPreview(storyJson.data ?? null);
     } catch { setView('error'); }
   }, []);
 
@@ -144,6 +148,12 @@ export default function TodayPage() {
             <div className="readiness-form-footer"><small>Training guidance only — not a medical score.</small><button type="submit" className="button-primary" disabled={readinessBusy}>{readinessBusy ? 'Adapting…' : 'Adapt my session'}<ArrowRight /></button></div>
           </form>}
         </section>
+
+        {storyPreview ? <aside className={`weekly-story-entry ${storyPreview.status === 'forming' ? 'is-forming' : ''}`}>
+          <span className="weekly-story-icon"><BookOpen /></span>
+          <div><span className="eyebrow">Weekly Story</span><h2>{storyPreview.status === 'ready' ? storyPreview.viewed ? 'Your week is ready to replay' : 'Your week in FitCore is ready' : 'Your first story is taking shape'}</h2><p>{storyPreview.status === 'ready' ? storyPreview.standout ?? `${storyPreview.consistencyPct ?? 0}% of your chosen commitment, told honestly.` : storyPreview.message}</p></div>
+          {storyPreview.status === 'ready' ? <div className="weekly-story-actions"><Link href={`/story?weekStart=${storyPreview.weekStart}`}>{storyPreview.viewed ? 'Replay' : 'View Story'}<ArrowRight /></Link>{storyPreview.viewed ? <><Link href={`/story?weekStart=${storyPreview.weekStart}&share=1`}><Download />Share card</Link><Link href="/story?archive=1"><History />Past stories</Link></> : null}</div> : null}
+        </aside> : null}
 
         {card.insight && <aside className="coach-insight"><span><Bot /></span><div><small>Fitcore AI recommendation</small><p>{card.insight}</p></div><Link href="/chat">Ask coach <ArrowRight /></Link></aside>}
 
