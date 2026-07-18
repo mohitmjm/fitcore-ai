@@ -2,6 +2,7 @@
 
 import { ArrowRight, Dumbbell, Footprints, HeartPulse, Sparkles } from 'lucide-react';
 import type { MomentumQuest } from '@/lib/policy/momentum';
+import { getMomentumSpiceProfile, type MomentumSpiceLevel } from '@/lib/policy/momentum-spice';
 import styles from './momentum.module.css';
 
 const QUEST_ICONS = {
@@ -12,12 +13,14 @@ const QUEST_ICONS = {
 
 interface MomentumQuestCardProps {
   quest: MomentumQuest;
+  spice: MomentumSpiceLevel;
   disabled?: boolean;
   onStart: (quest: MomentumQuest) => void;
 }
 
-export function MomentumQuestCard({ quest, disabled = false, onStart }: MomentumQuestCardProps) {
+export function MomentumQuestCard({ quest, spice, disabled = false, onStart }: MomentumQuestCardProps) {
   const Icon = QUEST_ICONS[quest.kind];
+  const spiceProfile = getMomentumSpiceProfile(spice);
   return (
     <article className={`${styles.questCard} ${styles[`accent-${quest.accent}`]} ${quest.recommended ? styles.recommended : ''}`}>
       <div className={styles.questCardTop}>
@@ -28,6 +31,7 @@ export function MomentumQuestCard({ quest, disabled = false, onStart }: Momentum
       <div className={styles.questCopy}>
         <h2>{quest.title}</h2>
         <p>{quest.description}</p>
+        <strong className={styles.questTease}>{spiceProfile.questLines[quest.kind]}</strong>
       </div>
       <div className={styles.questMeta}>
         <span><strong>{quest.durationMinutes}</strong> min</span>

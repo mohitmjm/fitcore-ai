@@ -20,7 +20,7 @@ travel, motivation dips), and keeps you accountable on web — and (soon) WhatsA
 ## Key features
 
 - **Adaptive Today screen** — one screen answering "what should I do right now?"
-- **Momentum Quests** — three readiness-aware daily micro-quests, guided focus mode, equal recovery XP, and an opt-in Crew Boost
+- **Momentum Quests** — three readiness-aware daily micro-quests, orange-black Spice Mode, a safe shuffle picker, guided focus mode, equal recovery XP, and an opt-in Crew Boost
 - **FitCore Weekly Story** — adaptive, privacy-safe weekly recaps with an archive, 9:16 image export, native sharing, and deterministic offline copy
 - **Coach Memory** — learns goals, patterns, and motivation; reflects on your behavior
 - **Consistency engine** — streaks, 7/28-day rhythm, trend, momentum (the North Star)

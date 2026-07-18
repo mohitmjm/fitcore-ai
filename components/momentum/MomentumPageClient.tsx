@@ -4,9 +4,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, Copy, Flame, RefreshCw, Share2, ShieldCheck, Sparkles, Trophy, Zap } from 'lucide-react';
 import type { MomentumExperience, MomentumQuest } from '@/lib/policy/momentum';
+import {
+  getMomentumSpiceProfile,
+  isMomentumSpiceLevel,
+  type MomentumSpiceLevel,
+} from '@/lib/policy/momentum-spice';
 import { MomentumFocusMode } from './MomentumFocusMode';
 import { MomentumPath } from './MomentumPath';
 import { MomentumQuestCard } from './MomentumQuestCard';
+import { MomentumSpiceDeck } from './MomentumSpiceDeck';
 import styles from './momentum.module.css';
 
 type ViewState = 'loading' | 'ready' | 'auth' | 'error';
@@ -17,9 +23,13 @@ export function MomentumPageClient() {
   const [activeQuest, setActiveQuest] = useState<MomentumQuest | null>(null);
   const [completing, setCompleting] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
+  const [spiceLevel, setSpiceLevel] = useState<MomentumSpiceLevel>('spicy');
+  const [shuffling, setShuffling] = useState(false);
   const [toast, setToast] = useState('');
   const toastTimerRef = useRef<number | null>(null);
   const celebrationTimerRef = useRef<number | null>(null);
+  const shuffleTimerRef = useRef<number | null>(null);
+  const spiceProfile = getMomentumSpiceProfile(spiceLevel);
 
   const showToast = useCallback((message: string) => {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
@@ -53,8 +63,18 @@ export function MomentumPageClient() {
       controller.abort();
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
       if (celebrationTimerRef.current !== null) window.clearTimeout(celebrationTimerRef.current);
+      if (shuffleTimerRef.current !== null) window.clearTimeout(shuffleTimerRef.current);
     };
   }, [load]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('fitcore_momentum_spice');
+      if (isMomentumSpiceLevel(stored)) setSpiceLevel(stored);
+    } catch {
+      // The default personality remains available when storage is restricted.
+    }
+  }, []);
 
   async function completeQuest() {
     if (!activeQuest) return;
@@ -108,11 +128,34 @@ export function MomentumPageClient() {
     }
   }
 
+  function changeSpiceLevel(level: MomentumSpiceLevel) {
+    setSpiceLevel(level);
+    try {
+      window.localStorage.setItem('fitcore_momentum_spice', level);
+    } catch {
+      // The choice still applies for the current visit when storage is restricted.
+    }
+  }
+
+  function shuffleQuest() {
+    if (!experience || experience.completedToday || experience.quests.length === 0 || shuffling) return;
+    setShuffling(true);
+    if (shuffleTimerRef.current !== null) window.clearTimeout(shuffleTimerRef.current);
+    shuffleTimerRef.current = window.setTimeout(() => {
+      const randomValue = new Uint32Array(1);
+      window.crypto.getRandomValues(randomValue);
+      const quest = experience.quests[randomValue[0] % experience.quests.length];
+      setShuffling(false);
+      setActiveQuest(quest);
+      showToast(`${spiceProfile.shuffleToast} ${quest.title}.`);
+    }, 620);
+  }
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <Link href="/today" className={styles.backLink}><ArrowLeft aria-hidden="true" />Today</Link>
-        <span className={styles.newPill}><Sparkles aria-hidden="true" />New · healthy streaks</span>
+        <span className={styles.newPill}><Sparkles aria-hidden="true" />Orange era · hot</span>
       </header>
 
       {view === 'loading' ? <div className={styles.loading} aria-label="Loading Momentum Quests"><i /><i /><i /></div> : null}
@@ -122,9 +165,9 @@ export function MomentumPageClient() {
       {view === 'ready' && experience ? <main>
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <span>FitCore Momentum</span>
-            <h1>One quest.<br /><em>Real momentum.</em></h1>
-            <p>Pick the action with the lowest friction. Strength, movement, and recovery all count equally.</p>
+            <span>{spiceProfile.heroEyebrow}</span>
+            <h1>No beige energy.<br /><em>Just momentum.</em></h1>
+            <p>{spiceProfile.heroLine}</p>
           </div>
           <div className={styles.streakCard}>
             <span><Flame aria-hidden="true" />Current rhythm</span>
@@ -144,6 +187,14 @@ export function MomentumPageClient() {
           <span className={styles.readinessChip}>{experience.readiness.score !== undefined ? `${experience.readiness.score} ready` : 'Balanced default'}</span>
         </section>
 
+        <MomentumSpiceDeck
+          level={spiceLevel}
+          canShuffle={!experience.completedToday}
+          shuffling={shuffling}
+          onChange={changeSpiceLevel}
+          onShuffle={shuffleQuest}
+        />
+
         {experience.completedToday ? <section className={`${styles.completed} ${celebrating ? styles.celebrating : ''}`} aria-labelledby="momentum-complete-title">
           <div className={styles.completeMark}><Check aria-hidden="true" /></div>
           <div className={styles.completeCopy}>
@@ -162,7 +213,7 @@ export function MomentumPageClient() {
             <p>One completion earns the day. There is nothing extra to grind.</p>
           </div>
           <div className={styles.questGrid}>
-            {experience.quests.map((quest) => <MomentumQuestCard key={quest.id} quest={quest} onStart={setActiveQuest} />)}
+            {experience.quests.map((quest) => <MomentumQuestCard key={quest.id} quest={quest} spice={spiceLevel} onStart={setActiveQuest} />)}
           </div>
         </section>}
 
@@ -172,7 +223,7 @@ export function MomentumPageClient() {
         </aside>
       </main> : null}
 
-      {activeQuest ? <MomentumFocusMode quest={activeQuest} completing={completing} onClose={() => setActiveQuest(null)} onComplete={() => void completeQuest()} /> : null}
+      {activeQuest ? <MomentumFocusMode quest={activeQuest} spice={spiceLevel} completing={completing} onClose={() => setActiveQuest(null)} onComplete={() => void completeQuest()} /> : null}
       {toast ? <div className={styles.toast} role="status"><Check aria-hidden="true" />{toast}</div> : null}
     </div>
   );

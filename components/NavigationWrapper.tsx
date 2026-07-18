@@ -71,7 +71,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   useEffect(() => {
     if (!clerkConfigured || !isLoaded || !isSignedIn || !appRoute) return;
     let active = true;
-    fetch('/api/v1/me')
+    fetch('/api/v1/me', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : null)
       .then((json: { data?: { onboarded?: boolean } } | null) => {
         if (active && json?.data && !json.data.onboarded) router.replace('/welcome');

@@ -36,7 +36,7 @@ export default function WelcomePage() {
 
   useEffect(() => {
     let active = true;
-    fetch('/api/v1/me').then(async (response) => {
+    fetch('/api/v1/me', { cache: 'no-store' }).then(async (response) => {
       if (response.status === 401) { router.replace('/'); return; }
       const json = (await response.json()) as { data?: { onboarded?: boolean } };
       if (active && json.data?.onboarded) router.replace('/today');

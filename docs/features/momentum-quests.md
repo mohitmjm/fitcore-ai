@@ -30,6 +30,18 @@ Product references:
 - Guided focus mode includes optional browser-local voice cues and a clear stop-if-unwell note.
 - Crew Boost sharing is explicit and contains no identity, readiness score, or health data.
 
+## Spice Mode
+
+The orange-black Momentum experience includes three locally persisted coach attitudes:
+
+- **Chill** — calm, supportive framing
+- **Spicy** — sharper, playful nudges
+- **Feral-ish** — high-energy copy with an explicit safe-plan reminder
+
+Spice Mode changes presentation only. It cannot change readiness recommendations, exercise steps,
+duration, XP, completion limits, or safety guidance. A separate “shuffle the deck” control picks from
+the same three server-approved quests and opens the normal guided focus flow.
+
 ## Architecture
 
 - Pure policy: `lib/policy/momentum.ts`

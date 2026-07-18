@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Volume2, VolumeX, X } from 'lucide-react';
 import type { MomentumQuest } from '@/lib/policy/momentum';
+import { getMomentumSpiceProfile, type MomentumSpiceLevel } from '@/lib/policy/momentum-spice';
 import styles from './momentum.module.css';
 
 interface MomentumFocusModeProps {
   quest: MomentumQuest;
+  spice: MomentumSpiceLevel;
   completing: boolean;
   onClose: () => void;
   onComplete: () => void;
@@ -18,12 +20,13 @@ function formatElapsed(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
 }
 
-export function MomentumFocusMode({ quest, completing, onClose, onComplete }: MomentumFocusModeProps) {
+export function MomentumFocusMode({ quest, spice, completing, onClose, onComplete }: MomentumFocusModeProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
+  const spiceProfile = getMomentumSpiceProfile(spice);
 
   useEffect(() => {
     setVoiceAvailable('speechSynthesis' in window);
@@ -61,7 +64,7 @@ export function MomentumFocusMode({ quest, completing, onClose, onComplete }: Mo
   function toggleVoice() {
     const next = !voiceEnabled;
     setVoiceEnabled(next);
-    if (next) speak(`${quest.coachCue} ${quest.steps[stepIndex]}`);
+    if (next) speak(`${spiceProfile.focusIntro} ${quest.coachCue} ${quest.steps[stepIndex]}`);
     else window.speechSynthesis?.cancel();
   }
 
@@ -81,6 +84,7 @@ export function MomentumFocusMode({ quest, completing, onClose, onComplete }: Mo
         <div className={styles.focusContent}>
           <span className={styles.focusKind}>{quest.kind} · {quest.durationMinutes} min</span>
           <h2 id="momentum-focus-title">{quest.title}</h2>
+          <strong className={styles.focusSpice}>{spiceProfile.focusIntro}</strong>
           <p className={styles.focusCue}>{quest.coachCue}</p>
           <div className={styles.currentStep} aria-live="polite">
             <small>Step {stepIndex + 1}</small>

@@ -1,23 +1,16 @@
+import type { Document } from 'mongodb';
 import type { Plan, Role } from '@/lib/core/context';
+import { getCollection } from '@/lib/db/repository';
 import { getSupabaseAdmin, type ClerkProfileInsert, type ClerkProfileRow, type Json } from '@/lib/supabase/server';
 import { MemoryService } from '@/lib/services/memory/memory.service';
 import type { UserDoc } from './types';
 
 const TABLE = 'clerk_profiles';
+const MONGO_COLLECTION = 'users';
 
 type Locale = UserDoc['locale'];
 type UserProfile = NonNullable<UserDoc['profile']>;
-
-const globalForUserStore = globalThis as unknown as {
-  _fitcoreDevUsers?: Map<string, UserDoc>;
-};
-
-function devUsers(): Map<string, UserDoc> {
-  if (!globalForUserStore._fitcoreDevUsers) {
-    globalForUserStore._fitcoreDevUsers = new Map();
-  }
-  return globalForUserStore._fitcoreDevUsers;
-}
+type MongoUserDoc = UserDoc & Document;
 
 function defaultSubscription(): UserDoc['subscription'] {
   return { plan: 'free', status: 'active' };
@@ -140,14 +133,19 @@ function toRow(user: UserDoc): ClerkProfileInsert {
 
 async function persistUser(user: UserDoc): Promise<void> {
   const supabase = getSupabaseAdmin();
-  user.updatedAt = new Date();
+  const nextUser = { ...user, updatedAt: new Date() };
 
   if (!supabase) {
-    devUsers().set(user.clerkUserId, user);
+    const coll = await getCollection<MongoUserDoc>(MONGO_COLLECTION);
+    await coll.updateOne(
+      { clerkUserId: nextUser.clerkUserId },
+      { $set: nextUser },
+      { upsert: true },
+    );
     return;
   }
 
-  const { error } = await supabase.from(TABLE).upsert(toRow(user), {
+  const { error } = await supabase.from(TABLE).upsert(toRow(nextUser), {
     onConflict: 'clerk_user_id',
   });
   if (error) throw new Error(`Supabase profile upsert failed: ${error.message}`);
@@ -155,15 +153,16 @@ async function persistUser(user: UserDoc): Promise<void> {
 
 /**
  * Users/profile service. The Clerk webhook calls upsertFromClerk; onboarding calls ensureExists
- * + updateProfile. Supabase is the durable store when configured; the module-level fallback keeps
- * local zero-credential development usable and intentionally does not persist.
+ * + updateProfile. Supabase is used when configured; otherwise the same profile is stored in the
+ * existing MongoDB `users` collection. getDb() still supplies the intentional in-memory fallback
+ * only for zero-credential local development.
  */
 export const UsersService = {
   async getByClerkId(clerkUserId: string): Promise<UserDoc | null> {
     const supabase = getSupabaseAdmin();
     if (!supabase) {
-      const user = devUsers().get(clerkUserId);
-      return user?.isActive === false ? null : (user ?? null);
+      const coll = await getCollection<MongoUserDoc>(MONGO_COLLECTION);
+      return coll.findOne({ clerkUserId, isActive: { $ne: false } });
     }
 
     const { data, error } = await supabase

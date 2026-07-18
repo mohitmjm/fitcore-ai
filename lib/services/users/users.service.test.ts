@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { getCollection } from '@/lib/db/repository';
 import { UsersService } from './users.service';
 
 beforeEach(() => {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.MONGODB_URI;
 });
 
 describe('UsersService dev fallback', () => {
@@ -33,6 +35,11 @@ describe('UsersService dev fallback', () => {
     expect(user?.profile?.goal).toBe('muscle gain');
     expect(user?.profile?.equipment).toEqual(['home', 'dumbbells']);
     expect(user?.onboardingCompletedAt).toBeInstanceOf(Date);
+
+    const stored = await getCollection<Record<string, unknown>>('users');
+    const durableProfile = await stored.findOne({ clerkUserId });
+    expect(durableProfile?.profile).toMatchObject({ goal: 'muscle gain' });
+    expect(durableProfile?.onboardingCompletedAt).toBeInstanceOf(Date);
   });
 
   it('hides soft-deleted profiles from reads', async () => {
