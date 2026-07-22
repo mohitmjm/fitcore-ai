@@ -12,7 +12,7 @@ const DEV_USER_ID = 'dev-user';
  * - If Clerk is NOT configured (e.g. local dev without keys): falls back to a stable dev
  *   identity so the product remains runnable offline.
  *
- * Role + plan are loaded from MongoDB. See docs/architecture/04 §2.2.
+ * Role + plan are loaded from the persisted user profile (Supabase when configured).
  */
 export async function buildContext(source: Source = 'web'): Promise<AuthContext> {
   const clerkConfigured = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;

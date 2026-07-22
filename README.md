@@ -10,7 +10,8 @@ travel, motivation dips), and keeps you accountable on web — and (soon) WhatsA
 
 - **Next.js 15** (App Router) · **TypeScript** · **Tailwind CSS v4**
 - **Clerk** — authentication
-- **MongoDB Atlas** — data (with an in-memory dev fallback when `MONGODB_URI` is unset)
+- **Supabase** — Clerk-keyed user profile persistence
+- **MongoDB Atlas** — legacy domain data during the remaining migration (with an in-memory dev fallback when `MONGODB_URI` is unset)
 - **AI provider layer** — Gemini / OpenAI / Claude behind one interface, with a deterministic
   offline mock so everything runs without keys
 - **Recharts** (lazy-loaded) · **Vitest** (policy unit tests)
@@ -53,7 +54,7 @@ key from `.env.example` and restart to light up that integration. Confirm AI wir
 - `lib/services/*` — domain services; all user data is `clerkUserId`-scoped via `OwnedRepository`
 - `lib/ai/*` — provider registry + adapters + offline mock
 - `lib/channels/*`, `lib/events/*` — channel-agnostic messaging + domain event bus
-- `lib/db/*` — Mongo client, repository, indexes, dev in-memory store
+- `lib/db/*` — Supabase REST helper plus legacy Mongo repository/indexes/dev in-memory store
 
 Design docs live in `docs/architecture/` (start with `vision-and-north-star.md`). The current
 status + roadmap is in [`NEXT-STEPS.md`](./NEXT-STEPS.md); the performance audit is in
@@ -61,6 +62,7 @@ status + roadmap is in [`NEXT-STEPS.md`](./NEXT-STEPS.md); the performance audit
 
 ## Security
 
-User data has no row-level security in MongoDB, so the `OwnedRepository` base class enforces
-`clerkUserId` scoping on every read/write. Never commit secrets — `.env*` is git-ignored; set
-production keys in the Vercel dashboard.
+Clerk-keyed profiles live in Supabase `clerk_user_profiles` behind service-role-only RLS. Legacy
+Mongo-backed collections still use `OwnedRepository` to enforce `clerkUserId` scoping until the
+remaining services migrate. Never commit secrets — `.env*` is git-ignored; set production keys in
+the Vercel dashboard.
