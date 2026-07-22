@@ -21,8 +21,8 @@ interface ClerkEvent {
 }
 
 /**
- * Clerk → MongoDB sync. Verifies the Svix signature, then upserts/soft-deletes the user
- * profile. See docs/architecture/07-clerk-auth.md §5.
+ * Clerk profile sync. Verifies the Svix signature, then upserts/soft-deletes the user's
+ * Supabase-backed profile when configured.
  */
 export async function POST(req: Request): Promise<Response> {
   const secret = process.env.CLERK_WEBHOOK_SECRET;
