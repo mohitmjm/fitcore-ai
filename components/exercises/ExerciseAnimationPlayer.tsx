@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Pause, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getExerciseAnimation, interpolatePose, transformFor, type EquipmentId, type JointValue } from '@/lib/exercises/animation';
+import { getExerciseAnimation, interpolatePose, transformFor, type EquipmentId, type ExercisePosture, type JointValue } from '@/lib/exercises/animation';
 import type { Exercise } from '@/lib/exercises/types';
 
 type Preview = Pick<Exercise, 'name'> & Partial<Pick<Exercise, 'slug'>>;
@@ -13,6 +13,7 @@ export interface ExerciseAnimationPlayerProps {
   autoPlay?: boolean;
   showControls?: boolean;
   showMuscles?: boolean;
+  reducedMotionOverride?: boolean;
   paused?: boolean;
   onRepComplete?: () => void;
 }
@@ -58,8 +59,20 @@ function ResistanceBand({ equipment }: { equipment: EquipmentId[] }) {
   return <path className="rig-band" d="M83 138 C113 155 147 155 177 138" />;
 }
 
-function HumanRig({ pose, equipment, showMuscles }: { pose: ReturnType<typeof interpolatePose>; equipment: EquipmentId[]; showMuscles: boolean }) {
-  return <svg className="exercise-avatar" viewBox="0 0 260 300" aria-hidden="true"><EquipmentBackdrop equipment={equipment} /><g className="rig-root" transform="translate(130 128)">
+const rootTransformFor = (posture: ExercisePosture) => ({
+  standing: 'translate(130 128)',
+  incline: 'translate(111 186) rotate(-53)',
+  seated: 'translate(130 157)',
+  prone: 'translate(126 154) rotate(-90)',
+  supine: 'translate(126 174) rotate(-90)',
+  side: 'translate(122 186) rotate(-90)',
+  quadruped: 'translate(110 180) rotate(-90)',
+  row: 'translate(117 183) rotate(30)',
+  'hip-thrust': 'translate(95 178) rotate(-90)',
+}[posture]);
+
+function HumanRig({ pose, equipment, posture, showMuscles }: { pose: ReturnType<typeof interpolatePose>; equipment: EquipmentId[]; posture: ExercisePosture; showMuscles: boolean }) {
+  return <svg className="exercise-avatar" viewBox="0 0 260 300" aria-hidden="true"><EquipmentBackdrop equipment={equipment} /><g className="rig-root" transform={rootTransformFor(posture)}>
     <g transform={segmentTransform(pose.pelvis)}><path className="rig-pelvis" d="M-25 0 Q0 -9 25 0 L21 22 Q0 31 -21 22Z" /><HipBar equipment={equipment} />
       <g transform={segmentTransform(pose.torso)}><path className="rig-lower-torso" d="M-20 -1 Q0 -12 20 -1 L26 -45 Q0 -57 -26 -45Z" /><path className="rig-upper-torso" d="M-26 -43 Q0 -63 26 -43 L31 -76 Q0 -92 -31 -76Z" />
         <g transform="translate(0 -87)"><path className="rig-neck" d="M-7 0H7V12H-7Z" /><ellipse className="rig-head" cx="0" cy="-14" rx="16" ry="20" /><path className="rig-hair" d="M-15 -19 Q0 -42 15 -19V-29Q0 -45 -15 -29Z" /></g>
@@ -71,7 +84,7 @@ function HumanRig({ pose, equipment, showMuscles }: { pose: ReturnType<typeof in
   </g><ResistanceBand equipment={equipment} /></svg>;
 }
 
-export default function ExerciseAnimationPlayer({ exercise, compact = false, autoPlay = !compact, showControls = true, showMuscles: initialMuscles = true, paused = false, onRepComplete }: ExerciseAnimationPlayerProps) {
+export default function ExerciseAnimationPlayer({ exercise, compact = false, autoPlay = true, showControls = true, showMuscles: initialMuscles = true, reducedMotionOverride, paused = false, onRepComplete }: ExerciseAnimationPlayerProps) {
   const animation = useMemo(() => getExerciseAnimation(exercise), [exercise]);
   const rootRef = useRef<HTMLDivElement>(null); const elapsedRef = useRef(0); const callbackRef = useRef(onRepComplete);
   const [playing, setPlaying] = useState(autoPlay); const [speed, setSpeed] = useState(1); const [elapsed, setElapsed] = useState(0);
@@ -83,7 +96,8 @@ export default function ExerciseAnimationPlayer({ exercise, compact = false, aut
   useEffect(() => { const node = rootRef.current; if (!node || !compact) return; const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.18 }); observer.observe(node); return () => observer.disconnect(); }, [compact]);
   useEffect(() => { const update = () => setTabVisible(!document.hidden); update(); document.addEventListener('visibilitychange', update); return () => document.removeEventListener('visibilitychange', update); }, []);
 
-  const canAnimate = playing && !paused && !reducedMotion && visible && tabVisible;
+  const reduced = reducedMotionOverride ?? reducedMotion;
+  const canAnimate = playing && !paused && !reduced && visible && tabVisible;
   useEffect(() => {
     if (!canAnimate) return;
     let frame = 0; let last = performance.now(); let lastPaint = last;
@@ -91,17 +105,17 @@ export default function ExerciseAnimationPlayer({ exercise, compact = false, aut
     frame = requestAnimationFrame(tick); return () => cancelAnimationFrame(frame);
   }, [animation.duration, canAnimate, speed]);
 
-  const progress = reducedMotion ? reducedIndex / Math.max(1, animation.reducedMotionFrames.length - 1) : (elapsed % animation.duration) / animation.duration;
-  const pose = reducedMotion ? animation.reducedMotionFrames[reducedIndex] : interpolatePose(animation, progress);
-  const phaseIndex = reducedMotion ? Math.min(animation.phases.length - 1, Math.round(progress * (animation.phases.length - 1))) : Math.min(animation.phases.length - 1, Math.floor(progress * animation.phases.length));
+  const progress = reduced ? reducedIndex / Math.max(1, animation.reducedMotionFrames.length - 1) : (elapsed % animation.duration) / animation.duration;
+  const pose = reduced ? animation.reducedMotionFrames[reducedIndex] : interpolatePose(animation, progress);
+  const phaseIndex = reduced ? Math.min(animation.phases.length - 1, Math.round(progress * (animation.phases.length - 1))) : Math.min(animation.phases.length - 1, Math.floor(progress * animation.phases.length));
   const phase = animation.phases[phaseIndex];
-  const status = paused ? 'Resting' : reducedMotion ? 'Reduced motion' : !visible ? 'Paused off-screen' : !tabVisible ? 'Paused in background' : playing ? 'Playing' : 'Paused';
+  const status = paused ? 'Resting' : reduced ? 'Reduced motion' : !visible ? 'Paused off-screen' : !tabVisible ? 'Paused in background' : playing ? 'Playing' : 'Paused';
 
-  return <div ref={rootRef} className={`exercise-animation-player svg-animation-player ${compact ? 'is-compact' : ''}`} role="group" aria-label={`Animated ${exercise.name} demonstration. Current phase: ${phase}. ${status}.`}>
-    <HumanRig pose={pose} equipment={animation.equipment} showMuscles={muscles} />
+  return <div ref={rootRef} className={`exercise-animation-player svg-animation-player ${compact ? 'is-compact' : ''}`} data-animation-state={status.toLocaleLowerCase().replaceAll(' ', '-')} role="group" aria-label={`Animated ${exercise.name} demonstration. Current phase: ${phase}. ${status}.`}>
+    <HumanRig pose={pose} equipment={animation.equipment} posture={animation.posture} showMuscles={muscles} />
     {!compact && <><div className="animation-phase"><strong>{phase}</strong><span>{Math.round(progress * 100)}% · {status}</span></div><div className="animation-progress" aria-hidden="true"><i style={{ width: `${progress * 100}%` }} /></div></>}
-    {showControls && !compact && <div className="animation-controls"><button type="button" onClick={() => setPlaying((value) => !value)} disabled={reducedMotion} aria-label={playing ? 'Pause animation' : 'Play animation'}>{playing ? <Pause /> : <Play />}</button><button type="button" onClick={() => { elapsedRef.current = 0; setElapsed(0); setReducedIndex(0); }} aria-label="Replay animation"><RotateCcw /></button>
-      {reducedMotion ? <><button type="button" onClick={() => setReducedIndex((value) => Math.max(0, value - 1))} disabled={reducedIndex === 0}><ChevronLeft />Previous</button><button type="button" onClick={() => setReducedIndex((value) => Math.min(animation.reducedMotionFrames.length - 1, value + 1))} disabled={reducedIndex === animation.reducedMotionFrames.length - 1}>Next<ChevronRight /></button></> : <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))} aria-label="Animation speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1">1×</option></select>}
+    {showControls && !compact && <div className="animation-controls"><button type="button" onClick={() => setPlaying((value) => !value)} disabled={reduced} aria-label={playing ? 'Pause animation' : 'Play animation'}>{playing ? <Pause /> : <Play />}</button><button type="button" onClick={() => { elapsedRef.current = 0; setElapsed(0); setReducedIndex(0); }} aria-label="Replay animation"><RotateCcw /></button>
+      {reduced ? <><button type="button" onClick={() => setReducedIndex((value) => Math.max(0, value - 1))} disabled={reducedIndex === 0}><ChevronLeft />Previous</button><button type="button" onClick={() => setReducedIndex((value) => Math.min(animation.reducedMotionFrames.length - 1, value + 1))} disabled={reducedIndex === animation.reducedMotionFrames.length - 1}>Next<ChevronRight /></button></> : <select value={speed} onChange={(event) => setSpeed(Number(event.target.value))} aria-label="Animation speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1">1×</option></select>}
       <button type="button" className={muscles ? 'active' : ''} onClick={() => setMuscles((value) => !value)}>{muscles ? <Eye /> : <EyeOff />}Muscles</button></div>}
   </div>;
 }

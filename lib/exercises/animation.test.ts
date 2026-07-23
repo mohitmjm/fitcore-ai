@@ -18,6 +18,7 @@ describe('exercise SVG animation catalogue', () => {
       const setup = JSON.stringify(animation.frames[0].pose);
       expect(animation.frames.some((frame) => JSON.stringify(frame.pose) !== setup)).toBe(true);
       expect(animation.phases.length).toBeGreaterThan(1);
+      expect(animation.posture).toBeTruthy();
     }
   });
 
