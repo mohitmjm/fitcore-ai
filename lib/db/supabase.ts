@@ -9,12 +9,9 @@ function readSupabaseConfig(): SupabaseConfig | null {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
 
-  if (!url && !serviceRoleKey) return null;
-  if (!url || !serviceRoleKey) {
-    throw Errors.config(
-      'Supabase persistence requires both NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.',
-    );
-  }
+  // A public Supabase URL/key can be present before server-side persistence is enabled.
+  // Treat partial configuration as unavailable so callers can use their existing fallback.
+  if (!url || !serviceRoleKey) return null;
 
   return {
     url: url.replace(/\/+$/, ''),
