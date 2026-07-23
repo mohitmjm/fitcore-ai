@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Bookmark, BookmarkCheck, Dumbbell, Plus, ArrowUpRight } from 'lucide-react';
 import { MUSCLE_BY_ID } from '@/lib/exercises/muscles';
 import type { Exercise } from '@/lib/exercises/types';
-import MovementDemo from './MovementDemo';
+import ExerciseAnimationPlayer from './ExerciseAnimationPlayer';
 
 export default function ExerciseCard({
   exercise,
@@ -22,7 +22,7 @@ export default function ExerciseCard({
   return (
     <article className="exercise-card">
       <Link href={`/exercises/${exercise.slug}`} className="exercise-card-media" aria-label={`View ${exercise.name}`}>
-        <MovementDemo exercise={exercise} compact />
+        <ExerciseAnimationPlayer exercise={exercise} compact />
         <span className="exercise-level">{exercise.difficulty}</span>
       </Link>
       <div className="exercise-card-body">

@@ -12,6 +12,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api(.*)',
+  ...(process.env.NODE_ENV !== 'production' ? ['/dev/exercise-animation-lab'] : []),
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

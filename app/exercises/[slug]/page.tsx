@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { ArrowLeft, Bookmark, BookmarkCheck, Check, ChevronRight, Clock3, Dumbbell, HeartPulse, Info, Plus, ShieldAlert, Sparkles, Wind } from 'lucide-react';
 import AddToWorkoutSheet from '@/components/exercises/AddToWorkoutSheet';
 import ExerciseCard from '@/components/exercises/ExerciseCard';
-import MovementDemo from '@/components/exercises/MovementDemo';
+import ExerciseAnimationPlayer from '@/components/exercises/ExerciseAnimationPlayer';
 import { MUSCLE_BY_ID } from '@/lib/exercises/muscles';
 import type { Exercise } from '@/lib/exercises/types';
 
@@ -77,7 +77,7 @@ export default function ExerciseDetailPage() {
       <Link href="/exercises" className="back-link"><ArrowLeft />Body &amp; Exercises</Link>
 
       <section className="detail-hero-grid">
-        <div className="detail-demo-panel"><MovementDemo exercise={exercise} /><div className="demo-scrub"><span>Controlled tempo</span><div><i /></div><span>3 sec</span></div></div>
+        <div className="detail-demo-panel"><ExerciseAnimationPlayer exercise={exercise} /></div>
         <div className="detail-summary">
           <div className="detail-badges"><span>{exercise.difficulty}</span><span>{exercise.category}</span><span>{exercise.trainingType}</span></div>
           <h1>{exercise.name}</h1>

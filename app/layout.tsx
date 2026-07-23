@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     description: TAGLINE,
     images: ["/logo.png"],
   },
-  icons: { icon: "/favicon.ico", apple: "/icon.png" },
+  icons: { icon: "/icon.png", apple: "/icon.png" },
   appleWebApp: { capable: true, title: "FitCore AI", statusBarStyle: "black-translucent" },
 };
 
