@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, CheckCircle2, ChevronRight, Dumbbell, Gauge, ListRestart, Pause, Play, Plus, RotateCw, SkipForward, Sparkles, TimerReset, Trophy, X } from 'lucide-react';
-import MovementDemo from '@/components/exercises/MovementDemo';
+import ExerciseAnimationPlayer from '@/components/exercises/ExerciseAnimationPlayer';
 import { EXERCISES } from '@/lib/exercises/catalog';
 import type { Exercise } from '@/lib/exercises/types';
 
@@ -113,7 +113,7 @@ export default function WorkoutPage() {
       <header className="active-workout-header"><button type="button" onClick={() => setActive(false)}><X /></button><div><span>Active workout</span><strong>{selectedDay?.focus ?? selectedDay?.day}</strong></div><small>{exerciseIndex + 1}/{exercises.length}</small></header>
       <div className="active-progress"><i style={{ width: `${overallPosition}%` }} /></div>
       <main className="active-workout-grid">
-        <section className="active-demo"><MovementDemo exercise={demoFor(current)} /><div className="now-playing"><span><i />Now training</span><strong>{current.muscleGroup}</strong></div></section>
+        <section className="active-demo"><ExerciseAnimationPlayer exercise={demoFor(current)} /><div className="now-playing"><span><i />Now training</span><strong>{current.muscleGroup}</strong></div></section>
         <section className="active-controls">
           <div className="exercise-counter"><span>Exercise {exerciseIndex + 1} of {exercises.length}</span><button type="button" onClick={() => { setExerciseIndex((index) => Math.min(exercises.length - 1, index + 1)); setSetIndex(0); }}>Skip <SkipForward /></button></div>
           <h1>{current.name}</h1>
