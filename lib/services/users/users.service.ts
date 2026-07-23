@@ -14,7 +14,13 @@ const USERS = 'users';
 export const UsersService = {
   async getByClerkId(clerkUserId: string): Promise<UserDoc | null> {
     if (isSupabaseConfigured()) {
-      return SupabaseUsersRepository.getByClerkId(clerkUserId);
+      try {
+        return await SupabaseUsersRepository.getByClerkId(clerkUserId);
+      } catch (error) {
+        // The Supabase connection may be configured before its Clerk migration is applied.
+        // Keep read-only product routes available through the existing Mongo fallback.
+        if (!String(error).includes('PGRST205')) throw error;
+      }
     }
 
     const coll = await getCollection<UserDoc>(USERS);
