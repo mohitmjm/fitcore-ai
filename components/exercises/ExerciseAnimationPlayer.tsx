@@ -23,14 +23,29 @@ const segmentTransform = (value: JointValue | undefined) => {
   return `translate(${pose.translateX} ${pose.translateY}) rotate(${pose.rotation}) scale(${pose.scaleX} ${pose.scaleY})`;
 };
 
-function Arm({ side, upper, forearm, equipment }: { side: 'left' | 'right'; upper: JointValue | undefined; forearm: JointValue | undefined; equipment: EquipmentId[] }) {
+function Hand({ side, equipment }: { side: 'left' | 'right'; equipment: EquipmentId[] }) {
   const direction = side === 'left' ? -1 : 1;
   const carriesWeight = equipment.includes('dumbbell') || equipment.includes('dumbbells') || equipment.includes('kettlebell');
+
+  return <g className={`rig-hand rig-hand-${side}`}>
+    <ellipse className="rig-palm" cx={direction * 1.5} cy="5" rx="6.8" ry="8.5" transform={`rotate(${direction * -8} ${direction * 1.5} 5)`} />
+    <path className="rig-fingers" d={`M${direction * -4.5} 5.5 Q${direction * .5} 12.5 ${direction * 6.5} 8.5 L${direction * 7.5} 4 Q${direction * 1.5} 7 ${direction * -4.5} 2.5Z`} />
+    <path className="rig-thumb" d={`M${direction * -4} 0 Q${direction * -9} 2 ${direction * -7} 7 Q${direction * -4} 8 ${direction * -1} 5Z`} />
+    {carriesWeight && <g className="rig-dumbbell" transform={`translate(0 7) rotate(${direction * 90})`}>
+      <rect className="rig-dumbbell-handle" x="-14" y="-2.5" width="28" height="5" rx="2.5" />
+      <rect x="-19" y="-9" width="7" height="18" rx="2.5" />
+      <rect x="12" y="-9" width="7" height="18" rx="2.5" />
+      <path className="rig-grip-lines" d="M-4 -3V3 M0 -3V3 M4 -3V3" />
+    </g>}
+  </g>;
+}
+
+function Arm({ side, upper, forearm, equipment }: { side: 'left' | 'right'; upper: JointValue | undefined; forearm: JointValue | undefined; equipment: EquipmentId[] }) {
+  const direction = side === 'left' ? -1 : 1;
   return <g transform={`translate(${direction * 27} 0)`} className={`rig-arm rig-${side}`}>
     <g transform={segmentTransform(upper)}><path className="rig-upper-arm" d={`M0 0 C${direction * 9} 16 ${direction * 8} 31 ${direction * 3} 48`} /><g transform={`translate(${direction * 3} 48)`}>
       <circle className="rig-joint" r="5" /><g transform={segmentTransform(forearm)}><path className="rig-forearm" d={`M0 0 C${direction * 5} 13 ${direction * 5} 29 ${direction * 2} 41`} /><g transform={`translate(${direction * 2} 41)`}>
-        <path className="rig-hand" d={`M${direction * -5} -2 Q${direction * 3} -7 ${direction * 8} 0 L${direction * 6} 10 Q0 14 ${direction * -5} 8 Z`} />
-        {carriesWeight && <g className="rig-dumbbell" transform={`translate(${direction * 10} 8) rotate(${direction * 90})`}><rect x="-16" y="-3" width="32" height="6" rx="3" /><rect x="-18" y="-10" width="7" height="20" rx="2" /><rect x="11" y="-10" width="7" height="20" rx="2" /></g>}
+        <Hand side={side} equipment={equipment} />
       </g></g>
     </g></g>
   </g>;
