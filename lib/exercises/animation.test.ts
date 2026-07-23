@@ -26,8 +26,18 @@ describe('exercise SVG animation catalogue', () => {
     const animation = EXERCISE_ANIMATIONS['goblet-squat'];
     const pose = interpolatePose(animation, 0.21);
     const pelvis = transformFor(pose.pelvis);
-    expect(pelvis.rotation).toBeGreaterThan(0);
+    expect(pelvis.translateY).toBeGreaterThan(0);
     expect(pelvis.scaleX).toBe(1);
+  });
+
+  it('defines a supported view rig and separate compact/full framing for every exercise', () => {
+    const supportedViews = new Set(['front', 'side', 'three-quarter', 'floor-side', 'floor-three-quarter']);
+    for (const animation of Object.values(EXERCISE_ANIMATIONS)) {
+      expect(supportedViews.has(animation.rigView)).toBe(true);
+      expect(animation.compactViewport.viewBox.trim().split(/\s+/)).toHaveLength(4);
+      expect(animation.fullViewport.viewBox.trim().split(/\s+/)).toHaveLength(4);
+      expect(animation.compactViewport).not.toBe(animation.fullViewport);
+    }
   });
 
   it('uses the labelled safe fallback only for an unknown slug', () => {

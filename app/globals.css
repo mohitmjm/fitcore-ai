@@ -732,6 +732,52 @@ path.motion-weight { fill: none; stroke: #c7f65a; stroke-linecap: round; stroke-
 .svg-animation-player { background: radial-gradient(circle at 50% 36%, rgba(199,246,90,.16), transparent 33%), radial-gradient(circle at 50% 115%, rgba(82,108,80,.18), transparent 42%), #111512; isolation: isolate; }
 .exercise-avatar { width: min(86%, 360px); height: auto; overflow: visible; filter: drop-shadow(0 20px 16px rgba(0,0,0,.3)); pointer-events: none; }
 .rig-root, .rig-equipment { pointer-events: none; }.rig-head, .rig-palm, .rig-fingers, .rig-thumb, .rig-joint { fill: #d8a47d; }.rig-palm, .rig-fingers, .rig-thumb { stroke: #b97859; stroke-linejoin: round; stroke-width: .65; }.rig-fingers { fill: #dba681; }.rig-thumb { fill: #cf9470; }.rig-hair { fill: #28201e; }.rig-neck { fill: #c98f6c; }.rig-upper-torso { fill: #e6ece5; stroke: #f7faf6; stroke-width: 1.3; }.rig-lower-torso { fill: #cdd8cf; stroke: #edf5ec; stroke-width: 1.3; }.rig-pelvis { fill: #a8b6ab; stroke: #eaf1e9; stroke-width: 1.2; }.rig-upper-arm, .rig-forearm, .rig-thigh, .rig-shin { fill: none; stroke-linecap: round; stroke-linejoin: round; }.rig-upper-arm { stroke: #dce6dd; stroke-width: 15; }.rig-forearm { stroke: #c1d0c2; stroke-width: 12; }.rig-thigh { stroke: #d9e5d9; stroke-width: 20; }.rig-shin { stroke: #bdcebf; stroke-width: 15; }.rig-foot { fill: #aebfaf; }.rig-muscle { fill: rgba(199,246,90,.68); mix-blend-mode: screen; }.rig-dumbbell rect { fill: #2e4033; stroke: #c7f65a; stroke-width: 1.2; }.rig-dumbbell .rig-dumbbell-handle { fill: #b8cb5c; }.rig-grip-lines { fill: none; stroke: #d8a47d; stroke-linecap: round; stroke-width: 1.2; }.rig-mat { fill: rgba(199,246,90,.08); stroke: rgba(199,246,90,.3); }.rig-floor { fill: none; stroke: rgba(199,246,90,.35); stroke-width: 1.5; }.rig-bench path { fill: none; stroke: #8fa294; stroke-linecap: round; stroke-linejoin: round; stroke-width: 8; }.rig-cable-machine > path:not(.rig-cable):not(.rig-handle):not(.rig-pad) { fill: none; stroke: #596b5e; stroke-width: 5; }.rig-cable { fill: none; stroke: #c7f65a; stroke-dasharray: 3 5; stroke-width: 1.6; }.rig-handle { fill: none; stroke: #e7f0e6; stroke-width: 4; }.rig-pad { fill: none; stroke: #7d957f; stroke-width: 7; }.rig-barbell path { stroke: #d8e7d8; stroke-width: 5; }.rig-barbell rect { fill: #334a38; stroke: #c7f65a; }.rig-bar-pad { fill: #829d72 !important; }.rig-band { fill: none; stroke: #d99bff; stroke-linecap: round; stroke-width: 5; }.svg-animation-player .animation-controls { left: 50%; width: max-content; max-width: calc(100% - 24px); transform: translateX(-50%); }.svg-animation-player .animation-controls button { display: inline-flex; width: auto; align-items: center; gap: 3px; padding: 0 8px; }.svg-animation-player .animation-controls button:disabled { opacity: .45; }.svg-animation-player .animation-controls button.active { background: var(--primary); color: var(--primary-ink); }.animation-phase { position: absolute; top: 13px; left: 14px; right: 14px; display: flex; justify-content: space-between; color: rgba(240,247,235,.78); font-size: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }.animation-phase span { color: var(--primary); }.animation-progress { position: absolute; right: 15px; bottom: 54px; left: 15px; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.14); }.animation-progress i { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width .05s linear; }
+.rig-wrist { fill: #d8a47d; stroke: #b97859; stroke-linejoin: round; stroke-width: .65; }.rig-finger-detail { fill: none; stroke: #a9684d; stroke-linecap: round; stroke-width: .65; }
+.anatomical-athlete { width: min(92%, 430px); overflow: visible; filter: drop-shadow(0 16px 18px rgba(0,0,0,.26)); }
+.athlete-root { transform-box: fill-box; }
+.athlete-limb.is-far, .athlete-hand.is-far, .athlete-shoulder-cap.is-far { filter: brightness(.7) saturate(.72); opacity: .68; }
+.athlete-head, .athlete-neck, .athlete-palm, .athlete-thumb, .athlete-wrist { fill: #c9825d; stroke: #94563f; stroke-linejoin: round; stroke-width: .65; }
+.athlete-head { fill: #d5956e; }
+.athlete-hair { fill: #241d1b; }
+.athlete-nose { fill: #c57e5b; stroke: #94563f; stroke-width: .6; }
+.athlete-upper-torso { fill: #dbe5dc; stroke: #f4f7f3; stroke-width: 1.3; }
+.athlete-lower-torso { fill: #aebcaf; stroke: #dce5dc; stroke-width: 1.15; }
+.athlete-pelvis { fill: #829286; stroke: #c8d4ca; stroke-width: 1.2; }
+.athlete-shoulder-cap, .athlete-upper-arm, .athlete-thigh { fill: #d8e3d9; stroke: #eef4ee; stroke-width: 1.1; }
+.athlete-forearm, .athlete-shin { fill: #afc0b2; stroke: #dce7dd; stroke-width: 1; }
+.athlete-elbow, .athlete-knee { fill: #9eafa2; stroke: #dbe5dc; stroke-width: .9; }
+.athlete-foot { fill: #8fa194; stroke: #c7d5ca; stroke-linejoin: round; stroke-width: .9; }
+.athlete-hand-detail { fill: none; stroke: #8f503c; stroke-linecap: round; stroke-width: .7; }
+.athlete-muscle { fill: rgba(199,246,90,.66); mix-blend-mode: screen; }
+.athlete-dumbbell rect { fill: #26342b; stroke: #c7f65a; stroke-width: 1.2; }
+.athlete-dumbbell .athlete-dumbbell-handle { fill: #829b46; }
+.athlete-kettlebell > path:not(.athlete-kettlebell-handle):not(.athlete-kettlebell-shine) { fill: #334338; stroke: #c7f65a; stroke-width: 1.3; }
+.athlete-kettlebell-handle { fill: none; stroke: #c7f65a; stroke-linecap: round; stroke-width: 4.5; }
+.athlete-kettlebell-shine { fill: none; stroke: rgba(255,255,255,.46); stroke-linecap: round; stroke-width: 1.2; }
+.athlete-resistance-band path { fill: none; stroke: #d48aff; stroke-linecap: round; stroke-width: 4.5; }
+.athlete-resistance-band circle { fill: #2d1838; stroke: #ecaaff; stroke-width: 1; }
+.athlete-cable-grip rect { fill: #26342b; stroke: #c7f65a; stroke-width: 1; }
+.athlete-live-cable path { fill: none; stroke: #c7f65a; stroke-dasharray: 3 4; stroke-linecap: round; stroke-width: 1.35; }
+.athlete-mat { fill: rgba(199,246,90,.07); stroke: rgba(199,246,90,.32); stroke-width: 1; }
+.athlete-floor { fill: none; stroke: rgba(199,246,90,.38); stroke-width: 1.4; }
+.athlete-bench path { fill: #46564b; stroke: #9aab9d; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+.athlete-cable-machine > path { fill: none; stroke: #637568; stroke-width: 5; }
+.athlete-cable-machine circle { fill: #1f2922; stroke: #c7f65a; stroke-width: 1; }
+.athlete-cable-machine .athlete-seat-pad { stroke: #8da18f; stroke-width: 8; }
+.athlete-barbell path { fill: none; stroke: #d9e4da; stroke-width: 4.5; }
+.athlete-barbell rect { fill: #2e4033; stroke: #c7f65a; stroke-width: 1; }
+.athlete-barbell .athlete-bar-pad { fill: #7e9470; }
+.athlete-hip-thrust-barbell > path { fill: none; stroke: #d9e4da; stroke-width: 4; }
+.athlete-hip-thrust-barbell > circle { fill: rgba(45,61,49,.88); stroke: #c7f65a; stroke-width: 2; }
+.athlete-hip-thrust-barbell .athlete-barbell-hub { fill: #81936f; stroke: #e4efda; stroke-width: 1.2; }
+.athlete-pivot { pointer-events: none; }
+.athlete-pivot circle { fill: #ff5c7a; stroke: #fff; stroke-width: .8; }
+.athlete-pivot path { fill: none; stroke: #ff5c7a; stroke-width: .7; }
+.animation-lab-pose-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 14px; width: min(100%,1280px); margin: 28px auto; }
+.animation-lab-pose-grid article { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.animation-lab-pose-grid article > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--line); }
+.animation-lab-pose-grid article > header strong { font-size: 11px; }.animation-lab-pose-grid article > header span { color: var(--primary); font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.animation-lab-pose-grid .exercise-animation-player { min-height: 210px; }
 .exercise-animation-player.is-compact { min-height: 170px; }
 .exercise-animation-video { display: block; width: 100%; height: 100%; min-height: inherit; object-fit: cover; }
 .exercise-animation-player.is-unavailable { background: linear-gradient(145deg, #1b211d, #101411); }
