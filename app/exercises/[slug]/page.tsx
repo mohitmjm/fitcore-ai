@@ -77,7 +77,7 @@ export default function ExerciseDetailPage() {
       <Link href="/exercises" className="back-link"><ArrowLeft />Body &amp; Exercises</Link>
 
       <section className="detail-hero-grid">
-        <div className="detail-demo-panel"><ExerciseAnimationPlayer exercise={exercise} /><div className="demo-scrub"><span>Technique media</span><div><i /></div><span>Reviewed assets only</span></div></div>
+        <div className="detail-demo-panel"><ExerciseAnimationPlayer exercise={exercise} /></div>
         <div className="detail-summary">
           <div className="detail-badges"><span>{exercise.difficulty}</span><span>{exercise.category}</span><span>{exercise.trainingType}</span></div>
           <h1>{exercise.name}</h1>

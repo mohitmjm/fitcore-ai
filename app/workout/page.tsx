@@ -13,12 +13,10 @@ interface WorkoutPlan { days: PlanDay[]; mode: string; generatedBy: string; week
 interface DraftExercise { exerciseId: string; slug: string; name: string; sets: number; reps: string; weightKg?: number; restSeconds: number; notes?: string }
 interface SetLog { reps: string; weight: string; done: boolean }
 
-function demoFor(exercise: PlanExercise): Pick<Exercise, 'name' | 'demoStyle'> {
-  const match = EXERCISES.find((item) => item.slug === exercise.slug || item.name.toLowerCase() === exercise.name.toLowerCase());
-  if (match) return match;
-  const group = exercise.muscleGroup.toLowerCase();
-  const demoStyle: Exercise['demoStyle'] = group.includes('leg') || group.includes('quad') ? 'squat' : group.includes('back') ? 'pull' : group.includes('core') ? 'core' : 'push';
-  return { name: exercise.name, demoStyle };
+function demoFor(exercise: PlanExercise): Pick<Exercise, 'name'> & Partial<Pick<Exercise, 'slug'>> {
+  const normalizedName = exercise.name.trim().toLocaleLowerCase();
+  const match = EXERCISES.find((item) => item.slug === exercise.slug || (!exercise.slug && item.name.toLocaleLowerCase() === normalizedName));
+  return match ? { name: match.name, slug: match.slug } : { name: exercise.name };
 }
 
 export default function WorkoutPage() {
@@ -113,7 +111,7 @@ export default function WorkoutPage() {
       <header className="active-workout-header"><button type="button" onClick={() => setActive(false)}><X /></button><div><span>Active workout</span><strong>{selectedDay?.focus ?? selectedDay?.day}</strong></div><small>{exerciseIndex + 1}/{exercises.length}</small></header>
       <div className="active-progress"><i style={{ width: `${overallPosition}%` }} /></div>
       <main className="active-workout-grid">
-        <section className="active-demo"><ExerciseAnimationPlayer exercise={demoFor(current)} /><div className="now-playing"><span><i />Now training</span><strong>{current.muscleGroup}</strong></div></section>
+        <section className="active-demo"><ExerciseAnimationPlayer exercise={demoFor(current)} paused={restSeconds > 0} /><div className="now-playing"><span><i />{restSeconds > 0 ? 'Resting' : 'Now training'}</span><strong>{current.muscleGroup}</strong></div></section>
         <section className="active-controls">
           <div className="exercise-counter"><span>Exercise {exerciseIndex + 1} of {exercises.length}</span><button type="button" onClick={() => { setExerciseIndex((index) => Math.min(exercises.length - 1, index + 1)); setSetIndex(0); }}>Skip <SkipForward /></button></div>
           <h1>{current.name}</h1>
