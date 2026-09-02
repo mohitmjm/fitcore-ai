@@ -64,3 +64,7 @@ status + roadmap is in [`NEXT-STEPS.md`](./NEXT-STEPS.md); the performance audit
 User data has no row-level security in MongoDB, so the `OwnedRepository` base class enforces
 `clerkUserId` scoping on every read/write. Never commit secrets — `.env*` is git-ignored; set
 production keys in the Vercel dashboard.
+
+## License
+
+Released under the [MIT License](./LICENSE).
